@@ -15,8 +15,7 @@ from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
-from pipecat.services.cartesia.tts import CartesiaTTSService
-from pipecat.services.openai.llm import OpenAILLMService
+from pipecat.services.aws_nova_sonic import AWSNovaSonicLLMService
 from pipecat.transports.services.daily import DailyParams, DailyTransport
 from pipecatcloud.agent import DailySessionArguments
 
@@ -41,16 +40,25 @@ async def main(transport: DailyTransport):
     Args:
         transport: The DailyTransport instance
     """
-    tts = CartesiaTTSService(
-        api_key=os.getenv("CARTESIA_API_KEY"), voice_id="71a7ad14-091c-4e8e-a314-022ece01c121"
+    
+    llm = AWSNovaSonicLLMService(
+        secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+        access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        session_token=os.getenv("AWS_SESSION_TOKEN"),
+        region="us-east-1",
+        voice_id="tiffany",  # matthew, tiffany, amy
+        # you could choose to pass instruction here rather than via context
+        # system_instruction=system_instruction
+        # you could choose to pass tools here rather than via context
+        # tools=tools
     )
 
-    llm = OpenAILLMService(api_key=os.getenv("OPENAI_API_KEY"), model="gpt-4o")
-
+    system_instruction = ("You are a elementary school teacher named Lexi. "
+                          f"{AWSNovaSonicLLMService.AWAIT_TRIGGER_ASSISTANT_RESPONSE_INSTRUCTION}")
     messages = [
         {
             "role": "system",
-            "content": "You are a helpful LLM in a WebRTC call. Your goal is to demonstrate your capabilities in a succinct way. Your output will be converted to audio so don't include special characters in your answers. Respond to what the user said in a creative and helpful way.",
+            "content": system_instruction,
         },
     ]
 
@@ -62,7 +70,6 @@ async def main(transport: DailyTransport):
             transport.input(),
             context_aggregator.user(),
             llm,
-            tts,
             transport.output(),
             context_aggregator.assistant(),
         ]
@@ -78,18 +85,18 @@ async def main(transport: DailyTransport):
         ),
     )
 
+     # Handle client connection event
     @transport.event_handler("on_first_participant_joined")
     async def on_first_participant_joined(transport, participant):
         logger.info("First participant joined: {}", participant["id"])
         await transport.capture_participant_transcription(participant["id"])
         # Kick off the conversation.
-        messages.append(
-            {
-                "role": "system",
-                "content": "Please start with 'Hello World' and introduce yourself to the user.",
-            }
-        )
-        await task.queue_frames([LLMMessagesFrame(messages)])
+        await task.queue_frames([context_aggregator.user().get_context_frame()])
+        # HACK: for now, we need this special way of triggering the first assistant response in AWS
+        # Nova Sonic. Note that this trigger requires a special corresponding bit of text in the
+        # system instruction. In the future, simply queueing the context frame should be sufficient.
+        await llm.trigger_assistant_response()
+
 
     @transport.event_handler("on_participant_left")
     async def on_participant_left(transport, participant, reason):
