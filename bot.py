@@ -44,7 +44,6 @@ async def main(transport: DailyTransport):
     llm = AWSNovaSonicLLMService(
         secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
         access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-        session_token=os.getenv("AWS_SESSION_TOKEN"),
         region="us-east-1",
         voice_id="tiffany",  # matthew, tiffany, amy
         # you could choose to pass instruction here rather than via context
