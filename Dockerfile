@@ -8,7 +8,7 @@ ARG VERSION
 ENV IMAGE_VERSION=$VERSION
 CMD ["sh", "-c", "if [ -f /app/pre-app.sh ]; then sh /app/pre-app.sh; fi && exec python app.py"]
 
-RUN python --version
+RUN apt update && apt install -y git && apt clean
 
 COPY ./requirements.txt requirements.txt
 
