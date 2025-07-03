@@ -5,9 +5,6 @@ import pulumi
 import pulumi_aws as aws
 from strongmind_deployment.container import ContainerComponent
 
-# Configure AWS provider for us-east-1
-aws_provider = aws.Provider("aws-east", region="us-east-1")
-
 # Get the current stack name for resource naming
 stack = pulumi.get_stack()
 project = pulumi.get_project()
@@ -35,7 +32,6 @@ container = ContainerComponent(
     need_load_balancer=True,
     # Namespace for resource naming
     namespace=f"{project}-{stack}",
-    opts=pulumi.ResourceOptions(provider=aws_provider)
 )
 
 # Export useful outputs
