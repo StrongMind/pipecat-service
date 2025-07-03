@@ -16,7 +16,7 @@ ecr_image = os.getenv("CONTAINER_IMAGE")
 container = ContainerComponent(
     "container",
     container_image=ecr_image,
-    container_port=8000,  # Adjust based on your app's port
+    container_port=8080,  # Adjust based on your app's port
     # Configure resource requirements
     cpu=512,  # 0.5 vCPU (in CPU units)
     memory=1024,  # 1 GB (in MB)
