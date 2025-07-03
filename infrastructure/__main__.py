@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import pulumi
 import pulumi_aws as aws
 from strongmind_deployment.container import ContainerComponent
