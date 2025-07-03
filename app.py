@@ -40,6 +40,11 @@ logger.configure(extra={"session_id": "NONE"})
 image_version = environ.get("IMAGE_VERSION", "unknown")
 
 
+@app.get("/up")
+async def health_check():
+    return {"status": "ok"}
+
+
 async def run_bot(args: SessionArguments):
     metadata = {
         "session_id": args.session_id,
