@@ -231,7 +231,7 @@ if __name__ == "__main__":
 
     # Parse command line arguments for server configuration
     default_host = os.getenv("HOST", "0.0.0.0")
-    default_port = int(os.getenv("FAST_API_PORT", "7860"))
+    default_port = int(os.getenv("FAST_API_PORT", "8080"))
 
     parser = argparse.ArgumentParser(description="Daily Storyteller FastAPI server")
     parser.add_argument("--host", type=str, default=default_host, help="Host address")
