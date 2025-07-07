@@ -4,6 +4,7 @@ import os
 import pulumi
 import pulumi_aws as aws
 from strongmind_deployment.container import ContainerComponent
+from strongmind_deployment.secrets import SecretsComponent
 
 # Get the current stack name for resource naming
 stack = pulumi.get_stack()
@@ -13,9 +14,14 @@ region = aws.get_region().name
 # ECR image configuration (updated for us-east-1)
 ecr_image = os.getenv("CONTAINER_IMAGE")
 
+secrets = SecretsComponent(
+    "secrets"
+)
+
 # Create the container component for ECS deployment
 container = ContainerComponent(
     "container",
+    secrets=secrets.get_secrets(),
     container_image=ecr_image,
     container_port=8080,  # Adjust based on your app's port
     # Configure resource requirements
