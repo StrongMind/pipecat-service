@@ -8,6 +8,7 @@ from strongmind_deployment.container import ContainerComponent
 # Get the current stack name for resource naming
 stack = pulumi.get_stack()
 project = pulumi.get_project()
+region = aws.get_region().name
 
 # ECR image configuration (updated for us-east-1)
 ecr_image = os.getenv("CONTAINER_IMAGE")
@@ -23,7 +24,7 @@ container = ContainerComponent(
     # Environment variables
     env_vars={
         "ENVIRONMENT": stack,
-        "REGION": "us-east-1"
+        "REGION": region
     },
     # Scaling configuration
     desired_count=2,  # Number of tasks to run
@@ -36,7 +37,7 @@ container = ContainerComponent(
 
 # Export useful outputs
 pulumi.export("container_image", ecr_image)
-pulumi.export("region", "us-east-1")
+pulumi.export("region", region)
 pulumi.export("namespace", f"{project}-{stack}")
 pulumi.export("ecs_cluster_arn", container.ecs_cluster_arn)
 if container.load_balancer:
