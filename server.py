@@ -164,6 +164,9 @@ async def start_agent(request: Request):
 
     return RedirectResponse(room_url)
 
+@app.get("/up")
+async def health_check():
+    return {"status": "ok"}
 
 @app.post("/connect")
 async def rtvi_connect(request: Request) -> Dict[Any, Any]:
