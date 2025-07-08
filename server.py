@@ -168,23 +168,6 @@ async def create_room_and_token() -> tuple[str, str]:
     return room_url, token
 
 
-@app.get("/client")
-async def serve_client():
-    """Serve the HTML client interface."""
-    try:
-        with open("index.html", "r") as f:
-            html_content = f.read()
-        return HTMLResponse(content=html_content, status_code=200)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Client interface not found")
-
-
-@app.get("/ui")
-async def redirect_to_client():
-    """Redirect /ui to /client for convenience."""
-    return RedirectResponse("/client")
-
-
 @app.get("/")
 async def start_agent(request: Request, bot: str = None, username: str = Depends(verify_credentials)):
     """Endpoint for direct browser access to the bot.

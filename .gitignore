@@ -94,3 +94,5 @@ cython_debug/
 .pcc-deploy.toml
 
 test.http
+
+client/node_modules/
