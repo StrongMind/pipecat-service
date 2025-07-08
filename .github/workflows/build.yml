@@ -13,9 +13,8 @@ jobs:
 
   build:
     name: Build Docker image
-    secrets: inherit
     runs-on: ubuntu-latest
-  
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
