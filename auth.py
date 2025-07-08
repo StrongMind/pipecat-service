@@ -123,9 +123,7 @@ async def verify_auth(request: Request) -> str:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:]
-            print(f"Verifying JWT token: {token}")
             payload = await verify_jwt_token(token)
-            print(f"JWT payload: {payload}")
             return payload.get("sub", payload.get("email", "unknown"))
         credentials = await bearer_security(request)
         if credentials:
