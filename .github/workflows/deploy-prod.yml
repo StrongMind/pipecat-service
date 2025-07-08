@@ -1,0 +1,39 @@
+name: Deploy to production
+
+on:
+  workflow_run:
+    workflows: [Build]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      jira-ticket:
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  deploy:
+    name: Deploy to ECS
+    uses: strongmind/public-reusable-workflows/.github/workflows/aws-deploy.yml@main
+    with:
+      environment-name: prod
+    secrets: inherit
+
+  notify:
+    name: Notify Slack
+    needs: deploy
+    uses: strongmind/public-reusable-workflows/.github/workflows/notify-slack.yml@main
+    secrets: inherit
+    with:
+      jira-ticket: ${{ github.event.inputs.jira-ticket }}
+
+  notify_deployment:
+    name: Notify Deployment
+    needs: deploy
+    uses: 
+      strongmind/public-reusable-workflows/.github/workflows/send-deployment-notification.yml@main
+    with:
+      repository_name: ${{ github.repository }}
+    secrets: inherit

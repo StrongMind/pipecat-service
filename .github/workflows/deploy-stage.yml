@@ -1,0 +1,20 @@
+name: Deploy to stage
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [ Build ]
+    branches: [ main ]
+    types: [ completed ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  deploy:
+    name: Deploy Rails to ECS
+    uses: strongmind/public-reusable-workflows/.github/workflows/aws-deploy.yml@main
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    with:
+      environment-name: stage
+    secrets: inherit
