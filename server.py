@@ -58,14 +58,30 @@ def cleanup():
         proc.wait()
 
 
-def get_bot_file():
-    bot_implementation = os.getenv("BOT_IMPLEMENTATION", "nova").lower().strip()
-    # If blank or None, default to openai
+def get_bot_file(bot_type: str = None):
+    """Get the bot implementation file based on bot_type or environment variable.
+    
+    Args:
+        bot_type (str, optional): Bot implementation type. If None, uses BOT_IMPLEMENTATION env var.
+        
+    Returns:
+        str: The bot file module name (e.g., "bot-nova")
+        
+    Raises:
+        ValueError: If the bot_type is not valid
+    """
+    if bot_type:
+        bot_implementation = bot_type.lower().strip()
+    else:
+        bot_implementation = os.getenv("BOT_IMPLEMENTATION", "nova").lower().strip()
+    
+    # If blank or None, default to nova
     if not bot_implementation:
         bot_implementation = "nova"
-    if bot_implementation not in ["openai", "gemini", "nova"]:
+    
+    if bot_implementation not in ["openai", "gemini", "nova", "polly"]:
         raise ValueError(
-            f"Invalid BOT_IMPLEMENTATION: {bot_implementation}. Must be 'openai' or 'gemini' or 'nova'"
+            f"Invalid bot implementation: {bot_implementation}. Must be 'openai', 'gemini', 'nova', or 'polly'"
         )
     return f"bot-{bot_implementation}"
 
@@ -127,10 +143,14 @@ async def create_room_and_token() -> tuple[str, str]:
 
 
 @app.get("/")
-async def start_agent(request: Request):
+async def start_agent(request: Request, bot: str = None):
     """Endpoint for direct browser access to the bot.
 
     Creates a room, starts a bot instance, and redirects to the Daily room URL.
+
+    Args:
+        bot (str, optional): Bot implementation type (openai, gemini, nova, polly). 
+                           If not provided, uses BOT_IMPLEMENTATION env var.
 
     Returns:
         RedirectResponse: Redirects to the Daily room URL
@@ -138,7 +158,8 @@ async def start_agent(request: Request):
     Raises:
         HTTPException: If room creation, token generation, or bot startup fails
     """
-    print("Creating room")
+    bot_type = bot if bot else None
+    print(f"Creating room with bot type: {bot_type or 'default'}")
     room_url, token = await create_room_and_token()
     print(f"Room URL: {room_url}")
 
@@ -151,7 +172,7 @@ async def start_agent(request: Request):
 
     # Spawn a new bot process
     try:
-        bot_file = get_bot_file()
+        bot_file = get_bot_file(bot_type)
         proc = subprocess.Popen(
             [f"python3 -m {bot_file} -u {room_url} -t {token}"],
             shell=True,
@@ -164,15 +185,20 @@ async def start_agent(request: Request):
 
     return RedirectResponse(room_url)
 
+
 @app.get("/up")
 async def health_check():
     return {"status": "ok"}
 
 @app.post("/connect")
-async def rtvi_connect(request: Request) -> Dict[Any, Any]:
+async def rtvi_connect(request: Request, bot: str = None) -> Dict[Any, Any]:
     """RTVI connect endpoint that creates a room and returns connection credentials.
 
     This endpoint is called by RTVI clients to establish a connection.
+
+    Args:
+        bot (str, optional): Bot implementation type (openai, gemini, nova, polly). 
+                           If not provided, uses BOT_IMPLEMENTATION env var.
 
     Returns:
         Dict[Any, Any]: Authentication bundle containing room_url and token
@@ -180,13 +206,57 @@ async def rtvi_connect(request: Request) -> Dict[Any, Any]:
     Raises:
         HTTPException: If room creation, token generation, or bot startup fails
     """
-    print("Creating room for RTVI connection")
+    bot_type = bot if bot else None
+    print(f"Creating room for RTVI connection with bot type: {bot_type or 'default'}")
     room_url, token = await create_room_and_token()
     print(f"Room URL: {room_url}")
 
     # Start the bot process
     try:
-        bot_file = get_bot_file()
+        bot_file = get_bot_file(bot_type)
+        proc = subprocess.Popen(
+            [f"python3 -m {bot_file} -u {room_url} -t {token}"],
+            shell=True,
+            bufsize=1,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+        )
+        bot_procs[proc.pid] = (proc, room_url)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start subprocess: {e}")
+
+    # Return the authentication bundle in format expected by DailyTransport
+    return {"room_url": room_url, "token": token}
+
+
+@app.post("/connect/{bot_type}")
+async def rtvi_connect_with_bot_type(request: Request, bot_type: str) -> Dict[Any, Any]:
+    """RTVI connect endpoint with specified bot type that creates a room and returns connection credentials.
+
+    This endpoint is called by RTVI clients to establish a connection with a specific bot type.
+
+    Args:
+        bot_type (str): Bot implementation type (openai, gemini, nova, polly)
+
+    Returns:
+        Dict[Any, Any]: Authentication bundle containing room_url and token
+
+    Raises:
+        HTTPException: If room creation, token generation, or bot startup fails
+    """
+    # Validate bot_type before proceeding
+    if bot_type.lower() not in ["openai", "gemini", "nova", "polly"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid bot type: {bot_type}. Must be 'openai', 'gemini', 'nova', or 'polly'"
+        )
+    
+    print(f"Creating room for RTVI connection with bot type: {bot_type}")
+    room_url, token = await create_room_and_token()
+    print(f"Room URL: {room_url}")
+
+    # Start the bot process
+    try:
+        bot_file = get_bot_file(bot_type)
         proc = subprocess.Popen(
             [f"python3 -m {bot_file} -u {room_url} -t {token}"],
             shell=True,
@@ -224,6 +294,55 @@ def get_status(pid: int):
     # Check the status of the subprocess
     status = "running" if proc[0].poll() is None else "finished"
     return JSONResponse({"bot_id": pid, "status": status})
+
+
+@app.get("/{bot_type}")
+async def start_agent_with_bot_type(request: Request, bot_type: str):
+    """Endpoint for direct browser access to the bot with specified bot type.
+
+    Creates a room, starts a bot instance of the specified type, and redirects to the Daily room URL.
+
+    Args:
+        bot_type (str): Bot implementation type (openai, gemini, nova, polly)
+
+    Returns:
+        RedirectResponse: Redirects to the Daily room URL
+
+    Raises:
+        HTTPException: If room creation, token generation, or bot startup fails
+    """
+    # Validate bot_type before proceeding
+    if bot_type.lower() not in ["openai", "gemini", "nova", "polly"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid bot type: {bot_type}. Must be 'openai', 'gemini', 'nova', or 'polly'"
+        )
+    
+    print(f"Creating room with bot type: {bot_type}")
+    room_url, token = await create_room_and_token()
+    print(f"Room URL: {room_url}")
+
+    # Check if there is already an existing process running in this room
+    num_bots_in_room = sum(
+        1 for proc in bot_procs.values() if proc[1] == room_url and proc[0].poll() is None
+    )
+    if num_bots_in_room >= MAX_BOTS_PER_ROOM:
+        raise HTTPException(status_code=500, detail=f"Max bot limit reached for room: {room_url}")
+
+    # Spawn a new bot process
+    try:
+        bot_file = get_bot_file(bot_type)
+        proc = subprocess.Popen(
+            [f"python3 -m {bot_file} -u {room_url} -t {token}"],
+            shell=True,
+            bufsize=1,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+        )
+        bot_procs[proc.pid] = (proc, room_url)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start subprocess: {e}")
+
+    return RedirectResponse(room_url)
 
 
 if __name__ == "__main__":

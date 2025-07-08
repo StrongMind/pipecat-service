@@ -1,4 +1,6 @@
+boto3
+fastapi[all]
 pipecatcloud
 pipecat-ai[cartesia,daily,openai,silero,aws-nova-sonic]
-python-dotenv~=1.0.1
+python-dotenv
 git+https://github.com/pipecat-ai/pipecat.git@main#egg=pipecat-ai

@@ -4,16 +4,17 @@
 # SPDX-License-Identifier: BSD 2-Clause License
 #
 
-"""Gemini Bot Implementation.
+"""OpenAI Bot Implementation.
 
-This module implements a chatbot using Google's Gemini Multimodal Live model.
-It includes:
+This module implements a chatbot using OpenAI's GPT-4 model for natural language
+processing. It includes:
 - Real-time audio/video interaction through Daily
 - Animated robot avatar
-- Speech-to-speech model
+- Text-to-speech using ElevenLabs
+- Support for both English and Spanish
 
 The bot runs as part of a pipeline that processes audio/video frames and manages
-the conversation flow using Gemini's streaming capabilities.
+the conversation flow.
 """
 
 import asyncio
@@ -27,7 +28,6 @@ from PIL import Image
 from runner import configure
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
-from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import (
     BotStartedSpeakingFrame,
     BotStoppedSpeakingFrame,
@@ -41,17 +41,18 @@ from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIProcessor
-from pipecat.services.aws_nova_sonic import AWSNovaSonicLLMService
+from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
+from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.transports.services.daily import DailyParams, DailyTransport
 
 load_dotenv(override=True)
-
 logger.remove(0)
 logger.add(sys.stderr, level="DEBUG")
 
 sprites = []
 script_dir = os.path.dirname(__file__)
 
+# Load sequential animation frames
 for i in range(1, 26):
     # Build the full path to the image file
     full_path = os.path.join(script_dir, f"assets/robot0{i}.png")
@@ -106,16 +107,16 @@ async def main():
     """Main bot execution function.
 
     Sets up and runs the bot pipeline including:
-    - Daily video transport with specific audio parameters
-    - Gemini Live multimodal model integration
-    - Voice activity detection
+    - Daily video transport
+    - Speech-to-text and text-to-speech services
+    - Language model integration
     - Animation processing
     - RTVI event handling
     """
     async with aiohttp.ClientSession() as session:
         (room_url, token) = await configure(session)
 
-        # Set up Daily transport with specific audio/video parameters for Gemini
+        # Set up Daily transport with video/audio parameters
         transport = DailyTransport(
             room_url,
             token,
@@ -126,28 +127,47 @@ async def main():
                 video_out_enabled=True,
                 video_out_width=1024,
                 video_out_height=576,
-                vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.5)),
+                vad_analyzer=SileroVADAnalyzer(),
+                transcription_enabled=True,
+                #
+                # Spanish
+                #
+                # transcription_settings=DailyTranscriptionSettings(
+                #     language="es",
+                #     tier="nova",
+                #     model="2-general"
+                # )
             ),
         )
 
-        llm = AWSNovaSonicLLMService(
-            secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-            access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-            region="us-east-1",
-            voice_id="tiffany",  # matthew, tiffany, amy
-            # you could choose to pass instruction here rather than via context
-            # system_instruction=system_instruction
-            # you could choose to pass tools here rather than via context
-            # tools=tools
+        # Initialize text-to-speech service
+        tts = ElevenLabsTTSService(
+            api_key=os.getenv("ELEVENLABS_API_KEY"),
+            #
+            # English
+            #
+            voice_id="cgSgspJ2msm6clMCkdW9",
+            #
+            # Spanish
+            #
+            # model="eleven_multilingual_v2",
+            # voice_id="gD1IexrzCvsXPHUuT0s3",
         )
 
-        system_instruction = ("You are a elementary school teacher named Lexi. "
-                            f"{AWSNovaSonicLLMService.AWAIT_TRIGGER_ASSISTANT_RESPONSE_INSTRUCTION}")
+        # Initialize LLM service
+        llm = OpenAILLMService(api_key=os.getenv("OPENAI_API_KEY"))
 
         messages = [
             {
                 "role": "system",
-                "content": system_instruction,
+                #
+                # English
+                #
+                "content": "You are Lexi, an elementary school teacher. Your goal is to demonstrate your capabilities in a succinct way. Your output will be converted to audio so don't include special characters in your answers. Respond to what the user said in a creative and helpful way, but keep your responses brief. Start by introducing yourself.",
+                #
+                # Spanish
+                #
+                # "content": "Eres Chatbot, un amigable y útil robot. Tu objetivo es demostrar tus capacidades de una manera breve. Tus respuestas se convertiran a audio así que nunca no debes incluir caracteres especiales. Contesta a lo que el usuario pregunte de una manera creativa, útil y breve. Empieza por presentarte a ti mismo.",
             },
         ]
 
@@ -169,6 +189,7 @@ async def main():
                 rtvi,
                 context_aggregator.user(),
                 llm,
+                tts,
                 ta,
                 transport.output(),
                 context_aggregator.assistant(),
@@ -178,7 +199,6 @@ async def main():
         task = PipelineTask(
             pipeline,
             params=PipelineParams(
-                allow_interruptions=True,
                 enable_metrics=True,
                 enable_usage_metrics=True,
             ),
@@ -196,12 +216,6 @@ async def main():
         async def on_first_participant_joined(transport, participant):
             print(f"Participant joined: {participant}")
             await transport.capture_participant_transcription(participant["id"])
-            # Kick off the conversation.
-            await task.queue_frames([context_aggregator.user().get_context_frame()])
-            # HACK: for now, we need this special way of triggering the first assistant response in AWS
-            # Nova Sonic. Note that this trigger requires a special corresponding bit of text in the
-            # system instruction. In the future, simply queueing the context frame should be sufficient.
-            await llm.trigger_assistant_response()
 
         @transport.event_handler("on_participant_left")
         async def on_participant_left(transport, participant, reason):
