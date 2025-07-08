@@ -30,8 +30,9 @@ import aiohttp
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.staticfiles import StaticFiles
 import secrets
 
 from pipecat.transports.services.helpers.daily_rest import DailyRESTHelper, DailyRoomParams
@@ -139,6 +140,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files for serving node_modules
+app.mount("/node_modules", StaticFiles(directory="node_modules"), name="static")
+
 
 async def create_room_and_token() -> tuple[str, str]:
     """Helper function to create a Daily room and generate an access token.
@@ -162,6 +166,23 @@ async def create_room_and_token() -> tuple[str, str]:
             raise HTTPException(status_code=500, detail=f"Failed to get token for room: {room_url}")
 
     return room_url, token
+
+
+@app.get("/client")
+async def serve_client():
+    """Serve the HTML client interface."""
+    try:
+        with open("index.html", "r") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content, status_code=200)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Client interface not found")
+
+
+@app.get("/ui")
+async def redirect_to_client():
+    """Redirect /ui to /client for convenience."""
+    return RedirectResponse("/client")
 
 
 @app.get("/")
