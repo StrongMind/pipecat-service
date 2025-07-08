@@ -4,3 +4,5 @@ pipecatcloud
 pipecat-ai[cartesia,daily,openai,silero,aws-nova-sonic]
 python-dotenv
 git+https://github.com/pipecat-ai/pipecat.git@main#egg=pipecat-ai
+PyJWT[crypto]
+cryptography

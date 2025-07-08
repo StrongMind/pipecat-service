@@ -12,17 +12,20 @@ direct browser access and RTVI client connections. It handles:
 - Managing bot processes
 - Providing connection credentials
 - Monitoring bot status
+- JWT authentication with configurable identity servers
 
 Requirements:
 - Daily API key (set in .env file)
 - Python 3.10+
 - FastAPI
 - Running bot implementation
+- JWT identity server (optional, configurable via environment variables)
 """
 
 import argparse
 import os
 import subprocess
+import json
 from contextlib import asynccontextmanager
 from typing import Any, Dict
 
@@ -31,11 +34,10 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
-import secrets
 
 from pipecat.transports.services.helpers.daily_rest import DailyRESTHelper, DailyRoomParams
+from auth import verify_auth
 
 # Load environment variables from .env file
 load_dotenv(override=True)
@@ -48,37 +50,6 @@ bot_procs = {}
 
 # Store Daily API helpers
 daily_helpers = {}
-
-# Basic authentication setup
-security = HTTPBasic()
-
-def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
-    """Verify basic authentication credentials."""
-    # Get credentials from environment variables
-    correct_username = os.getenv("BASIC_AUTH_USERNAME", "admin")
-    correct_password = os.getenv("BASIC_AUTH_PASSWORD", "password")
-    
-    is_correct_username = secrets.compare_digest(credentials.username, correct_username)
-    is_correct_password = secrets.compare_digest(credentials.password, correct_password)
-    
-    if not (is_correct_username and is_correct_password):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return credentials.username
-
-
-def cleanup():
-    """Cleanup function to terminate all bot processes.
-
-    Called during server shutdown.
-    """
-    for entry in bot_procs.values():
-        proc = entry[0]
-        proc.terminate()
-        proc.wait()
 
 
 def get_bot_file(bot_type: str = None):
@@ -165,7 +136,7 @@ async def create_room_and_token() -> tuple[str, str]:
 
 
 @app.get("/")
-async def start_agent(request: Request, bot: str = None, username: str = Depends(verify_credentials)):
+async def start_agent(request: Request, bot: str = None, username: str = Depends(verify_auth)):
     """Endpoint for direct browser access to the bot.
 
     Creates a room, starts a bot instance, and redirects to the Daily room URL.
@@ -215,14 +186,17 @@ async def health_check():
     return {"status": "ok"}
 
 @app.post("/connect")
-async def rtvi_connect(request: Request, bot: str = None) -> Dict[Any, Any]:
+async def rtvi_connect(request: Request, bot: str = None, username: str = Depends(verify_auth)) -> Dict[Any, Any]:
     """RTVI connect endpoint that creates a room and returns connection credentials.
 
     This endpoint is called by RTVI clients to establish a connection.
+    Requires authentication (JWT Bearer token or Basic Auth).
+    Optionally accepts system_prompt and tools in the JSON body, which are passed to the bot process as a single JSON argument.
 
     Args:
         bot (str, optional): Bot implementation type (openai, gemini, nova, polly). 
                            If not provided, uses BOT_IMPLEMENTATION env var.
+        username (str): Authenticated username (injected by dependency)
 
     Returns:
         Dict[Any, Any]: Authentication bundle containing room_url and token
@@ -235,11 +209,25 @@ async def rtvi_connect(request: Request, bot: str = None) -> Dict[Any, Any]:
     room_url, token = await create_room_and_token()
     print(f"Room URL: {room_url}")
 
+    # Parse system_prompt and tools from JSON body
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    system_prompt = body.get("system_prompt")
+    tools = body.get("tools")
+    custom_payload = None
+    if system_prompt is not None or tools is not None:
+        custom_payload = json.dumps({"system_prompt": system_prompt, "tools": tools})
+
     # Start the bot process
     try:
         bot_file = get_bot_file(bot_type)
+        cmd = [f"python3 -m {bot_file} -u {room_url} -t {token}"]
+        if custom_payload:
+            cmd[0] += f" -c '{custom_payload}'"
         proc = subprocess.Popen(
-            [f"python3 -m {bot_file} -u {room_url} -t {token}"],
+            cmd,
             shell=True,
             bufsize=1,
             cwd=os.path.dirname(os.path.abspath(__file__)),
@@ -253,13 +241,16 @@ async def rtvi_connect(request: Request, bot: str = None) -> Dict[Any, Any]:
 
 
 @app.post("/connect/{bot_type}")
-async def rtvi_connect_with_bot_type(request: Request, bot_type: str) -> Dict[Any, Any]:
+async def rtvi_connect_with_bot_type(request: Request, bot_type: str, username: str = Depends(verify_auth)) -> Dict[Any, Any]:
     """RTVI connect endpoint with specified bot type that creates a room and returns connection credentials.
 
     This endpoint is called by RTVI clients to establish a connection with a specific bot type.
+    Requires authentication (JWT Bearer token or Basic Auth).
+    Optionally accepts system_prompt and tools in the JSON body, which are passed to the bot process as a single JSON argument.
 
     Args:
         bot_type (str): Bot implementation type (openai, gemini, nova, polly)
+        username (str): Authenticated username (injected by dependency)
 
     Returns:
         Dict[Any, Any]: Authentication bundle containing room_url and token
@@ -273,16 +264,29 @@ async def rtvi_connect_with_bot_type(request: Request, bot_type: str) -> Dict[An
             status_code=400, 
             detail=f"Invalid bot type: {bot_type}. Must be 'openai', 'gemini', 'nova', or 'polly'"
         )
-    
     print(f"Creating room for RTVI connection with bot type: {bot_type}")
     room_url, token = await create_room_and_token()
     print(f"Room URL: {room_url}")
 
+    # Parse system_prompt and tools from JSON body
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    system_prompt = body.get("system_prompt")
+    tools = body.get("tools")
+    custom_payload = None
+    if system_prompt is not None or tools is not None:
+        custom_payload = json.dumps({"system_prompt": system_prompt, "tools": tools})
+
     # Start the bot process
     try:
         bot_file = get_bot_file(bot_type)
+        cmd = [f"python3 -m {bot_file} -u {room_url} -t {token}"]
+        if custom_payload:
+            cmd[0] += f" -c '{custom_payload}'"
         proc = subprocess.Popen(
-            [f"python3 -m {bot_file} -u {room_url} -t {token}"],
+            cmd,
             shell=True,
             bufsize=1,
             cwd=os.path.dirname(os.path.abspath(__file__)),
@@ -321,7 +325,7 @@ def get_status(pid: int):
 
 
 @app.get("/{bot_type}")
-async def start_agent_with_bot_type(request: Request, bot_type: str, username: str = Depends(verify_credentials)):
+async def start_agent_with_bot_type(request: Request, bot_type: str, username: str = Depends(verify_auth)):
     """Endpoint for direct browser access to the bot with specified bot type.
 
     Creates a room, starts a bot instance of the specified type, and redirects to the Daily room URL.
