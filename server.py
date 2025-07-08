@@ -28,9 +28,11 @@ from typing import Any, Dict
 
 import aiohttp
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import secrets
 
 from pipecat.transports.services.helpers.daily_rest import DailyRESTHelper, DailyRoomParams
 
@@ -45,6 +47,26 @@ bot_procs = {}
 
 # Store Daily API helpers
 daily_helpers = {}
+
+# Basic authentication setup
+security = HTTPBasic()
+
+def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
+    """Verify basic authentication credentials."""
+    # Get credentials from environment variables
+    correct_username = os.getenv("BASIC_AUTH_USERNAME", "admin")
+    correct_password = os.getenv("BASIC_AUTH_PASSWORD", "password")
+    
+    is_correct_username = secrets.compare_digest(credentials.username, correct_username)
+    is_correct_password = secrets.compare_digest(credentials.password, correct_password)
+    
+    if not (is_correct_username and is_correct_password):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
 
 
 def cleanup():
@@ -143,14 +165,16 @@ async def create_room_and_token() -> tuple[str, str]:
 
 
 @app.get("/")
-async def start_agent(request: Request, bot: str = None):
+async def start_agent(request: Request, bot: str = None, username: str = Depends(verify_credentials)):
     """Endpoint for direct browser access to the bot.
 
     Creates a room, starts a bot instance, and redirects to the Daily room URL.
+    Requires basic authentication.
 
     Args:
         bot (str, optional): Bot implementation type (openai, gemini, nova, polly). 
                            If not provided, uses BOT_IMPLEMENTATION env var.
+        username (str): Authenticated username (injected by dependency)
 
     Returns:
         RedirectResponse: Redirects to the Daily room URL
@@ -159,7 +183,7 @@ async def start_agent(request: Request, bot: str = None):
         HTTPException: If room creation, token generation, or bot startup fails
     """
     bot_type = bot if bot else None
-    print(f"Creating room with bot type: {bot_type or 'default'}")
+    print(f"Creating room with bot type: {bot_type or 'default'} for user: {username}")
     room_url, token = await create_room_and_token()
     print(f"Room URL: {room_url}")
 
@@ -297,13 +321,15 @@ def get_status(pid: int):
 
 
 @app.get("/{bot_type}")
-async def start_agent_with_bot_type(request: Request, bot_type: str):
+async def start_agent_with_bot_type(request: Request, bot_type: str, username: str = Depends(verify_credentials)):
     """Endpoint for direct browser access to the bot with specified bot type.
 
     Creates a room, starts a bot instance of the specified type, and redirects to the Daily room URL.
+    Requires basic authentication.
 
     Args:
         bot_type (str): Bot implementation type (openai, gemini, nova, polly)
+        username (str): Authenticated username (injected by dependency)
 
     Returns:
         RedirectResponse: Redirects to the Daily room URL
@@ -318,7 +344,7 @@ async def start_agent_with_bot_type(request: Request, bot_type: str):
             detail=f"Invalid bot type: {bot_type}. Must be 'openai', 'gemini', 'nova', or 'polly'"
         )
     
-    print(f"Creating room with bot type: {bot_type}")
+    print(f"Creating room with bot type: {bot_type} for user: {username}")
     room_url, token = await create_room_and_token()
     print(f"Room URL: {room_url}")
 
