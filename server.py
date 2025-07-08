@@ -140,10 +140,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files for serving node_modules
-app.mount("/node_modules", StaticFiles(directory="node_modules"), name="static")
-
-
 async def create_room_and_token() -> tuple[str, str]:
     """Helper function to create a Daily room and generate an access token.
 
