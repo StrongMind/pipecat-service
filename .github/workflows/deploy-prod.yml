@@ -15,34 +15,25 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy
-    runs-on: ubuntu-latest
-    environment: prod
+    name: Deploy to ECS
+    uses: strongmind/public-reusable-workflows/.github/workflows/aws-deploy.yml@main
+    with:
+      environment-name: prod
+    secrets: inherit
 
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+  notify:
+    name: Notify Slack
+    needs: deploy
+    uses: strongmind/public-reusable-workflows/.github/workflows/notify-slack.yml@main
+    secrets: inherit
+    with:
+      jira-ticket: ${{ github.event.inputs.jira-ticket }}
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.STRONGMIND_AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.STRONGMIND_AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-west-2
-
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
-
-    - name: Deploy with Pulumi
-      env:
-        PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-        CONTAINER_IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ github.event.repository.name }}:${{ github.event.workflow_run.head_sha }}
-        ENVIRONMENT_NAME: prod
-      run: |
-        cd ./infrastructure/
-        pulumi login s3://pulumi-state-sm/${{ github.event.repository.name }}
-        pulumi stack init prod --non-interactive || true
-        pulumi stack select prod
-        pulumi up --yes -v=3
+  notify_deployment:
+    name: Notify Deployment
+    needs: deploy
+    uses: 
+      strongmind/public-reusable-workflows/.github/workflows/send-deployment-notification.yml@main
+    with:
+      repository_name: ${{ github.repository }}
+    secrets: inherit
