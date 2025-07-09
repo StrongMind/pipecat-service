@@ -24,6 +24,7 @@ Requirements:
 
 import argparse
 import os
+import shlex
 import subprocess
 import json
 from contextlib import asynccontextmanager
@@ -96,7 +97,6 @@ async def lifespan(app: FastAPI):
     )
     yield
     await aiohttp_session.close()
-    cleanup()
 
 
 # Initialize FastAPI app with lifespan manager
@@ -225,7 +225,7 @@ async def rtvi_connect(request: Request, bot: str = None, username: str = Depend
         bot_file = get_bot_file(bot_type)
         cmd = [f"python3 -m {bot_file} -u {room_url} -t {token}"]
         if custom_payload:
-            cmd[0] += f" -c '{custom_payload}'"
+            cmd[0] += f" -c {shlex.quote(custom_payload)}"
         proc = subprocess.Popen(
             cmd,
             shell=True,
@@ -284,7 +284,7 @@ async def rtvi_connect_with_bot_type(request: Request, bot_type: str, username: 
         bot_file = get_bot_file(bot_type)
         cmd = [f"python3 -m {bot_file} -u {room_url} -t {token}"]
         if custom_payload:
-            cmd[0] += f" -c '{custom_payload}'"
+            cmd[0] += f" -c {shlex.quote(custom_payload)}"
         proc = subprocess.Popen(
             cmd,
             shell=True,

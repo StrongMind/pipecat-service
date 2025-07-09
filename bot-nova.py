@@ -19,6 +19,8 @@ the conversation flow using Gemini's streaming capabilities.
 import asyncio
 import os
 import sys
+import argparse
+import json
 
 import aiohttp
 from dotenv import load_dotenv
@@ -106,12 +108,28 @@ async def main():
     """Main bot execution function.
 
     Sets up and runs the bot pipeline including:
-    - Daily video transport with specific audio parameters
+    - Daily video transport with specific audio parameters for Gemini
     - Gemini Live multimodal model integration
     - Voice activity detection
     - Animation processing
     - RTVI event handling
     """
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Nova Sonic Bot")
+    parser.add_argument("-c", "--custom", type=str, help="Custom payload JSON string")
+    args, unknown = parser.parse_known_args()
+
+    # Parse custom payload if provided
+    system_prompt = None
+    tools = None
+    if args.custom:
+        try:
+            custom_data = json.loads(args.custom)
+            system_prompt = custom_data.get("system_prompt")
+            tools = custom_data.get("tools")
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse custom payload: {e}")
+
     async with aiohttp.ClientSession() as session:
         (room_url, token) = await configure(session)
 
@@ -130,19 +148,21 @@ async def main():
             ),
         )
 
+        # Always append the response instruction string
+        response_instruction = AWSNovaSonicLLMService.AWAIT_TRIGGER_ASSISTANT_RESPONSE_INSTRUCTION
+        if system_prompt:
+            # Remove trailing whitespace and append the instruction
+            system_instruction = system_prompt.rstrip() + "\n\n" + response_instruction
+        else:
+            system_instruction = "You are a elementary school teacher named Lexi.\n\n" + response_instruction
+
         llm = AWSNovaSonicLLMService(
             secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
             access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
             region="us-east-1",
             voice_id="tiffany",  # matthew, tiffany, amy
-            # you could choose to pass instruction here rather than via context
-            # system_instruction=system_instruction
-            # you could choose to pass tools here rather than via context
-            # tools=tools
+            tools=tools
         )
-
-        system_instruction = ("You are a elementary school teacher named Lexi. "
-                            f"{AWSNovaSonicLLMService.AWAIT_TRIGGER_ASSISTANT_RESPONSE_INSTRUCTION}")
 
         messages = [
             {
