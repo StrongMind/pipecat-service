@@ -10,9 +10,6 @@ on:
       jira-ticket:
         type: string
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-
 jobs:
   deploy:
     name: Deploy
