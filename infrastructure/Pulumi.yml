@@ -1,4 +1,4 @@
-name: nova-agent
+name: pipecat-service
 runtime:
   name: python
   options:
