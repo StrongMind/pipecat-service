@@ -10,10 +10,13 @@ on:
       jira-ticket:
         type: string
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   deploy:
     name: Deploy
-    runs-on: ubuntu-latest-m
+    runs-on: ubuntu-latest
     environment: prod
 
     steps:
