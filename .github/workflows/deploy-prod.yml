@@ -14,26 +14,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
-  deploy:
-    name: Deploy to ECS
-    uses: strongmind/public-reusable-workflows/.github/workflows/aws-deploy.yml@main
+  deploy-auto:
+    name: Autodeploy to ECS
+    uses: strongmind/public-reusable-workflows/.github/workflows/aws-deploy-with-pulumi.yml@main
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     with:
-      environment-name: prod
-    secrets: inherit
-
-  notify:
-    name: Notify Slack
-    needs: deploy
-    uses: strongmind/public-reusable-workflows/.github/workflows/notify-slack.yml@main
-    secrets: inherit
-    with:
-      jira-ticket: ${{ github.event.inputs.jira-ticket }}
-
-  notify_deployment:
-    name: Notify Deployment
-    needs: deploy
-    uses: 
-      strongmind/public-reusable-workflows/.github/workflows/send-deployment-notification.yml@main
-    with:
-      repository_name: ${{ github.repository }}
+      environment-name: ${{ inputs.environment-name }}
+      web-container-image: ${{ inputs.web-repository-name }}:${{ github.event.workflow_run.head_sha }}
+      worker-container-image: ${{ inputs.worker-repository-name }}:${{ github.event.workflow_run.head_sha }}
+      pulumi-command: ${{ inputs.pulumi-command }}
+      pulumi-bucket: ${{ inputs.pulumi-bucket }}
     secrets: inherit
