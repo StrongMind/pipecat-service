@@ -8,7 +8,7 @@ A template voice agent for [Pipecat Cloud](https://www.daily.co/products/pipecat
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.12+
 - Linux, MacOS, or Windows Subsystem for Linux (WSL)
 - [Docker](https://www.docker.com) and a Docker repository (e.g., [Docker Hub](https://hub.docker.com))
 - A Docker Hub account (or other container registry account)
