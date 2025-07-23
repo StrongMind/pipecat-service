@@ -36,6 +36,8 @@ from pipecat.frames.frames import (
     Frame,
     OutputImageRawFrame,
     SpriteFrame,
+    FunctionCallInProgressFrame,
+    FunctionCallResultFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
@@ -104,6 +106,112 @@ class TalkingAnimation(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
+class ToolProcessor(FrameProcessor):
+    """Handles tool calls by communicating with Central API.
+    
+    This processor intercepts tool call frames from the LLM, executes them
+    by calling Central's tool execution endpoints, and returns the results
+    back to the conversation flow.
+    """
+
+    def __init__(self, central_base_url: str = None, auth_token: str = None):
+        super().__init__()
+        self._central_base_url = central_base_url or os.getenv('CENTRAL_API_URL', 'http://localhost:3001')
+        self._auth_token = auth_token or os.getenv('CENTRAL_AUTH_TOKEN')
+        self._session = None
+
+    async def _get_session(self):
+        """Get or create HTTP session."""
+        if not self._session:
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    async def _call_central_tool(self, tool_name: str, tool_arguments: dict) -> dict:
+        """Call Central API to execute a tool.
+        
+        Args:
+            tool_name: Name of the tool to execute
+            tool_arguments: Arguments for the tool
+            
+        Returns:
+            Tool execution result from Central
+        """
+        session = await self._get_session()
+        
+        # Map tool names to Central endpoints
+        endpoint_map = {
+            'learning_component': '/api/nova_sonic/tools/learning_component',
+            'show_whiteboard': '/api/nova_sonic/tools/show_whiteboard', 
+            'show_video': '/api/nova_sonic/tools/show_video'
+        }
+        
+        endpoint = endpoint_map.get(tool_name)
+        if not endpoint:
+            logger.error(f"Unknown tool: {tool_name}")
+            return {"error": f"Unknown tool: {tool_name}"}
+            
+        url = f"{self._central_base_url}{endpoint}"
+        headers = {}
+        if self._auth_token:
+            headers['Authorization'] = f"Bearer {self._auth_token}"
+        headers['Content-Type'] = 'application/json'
+        
+        try:
+            logger.info(f"Calling Central tool: {tool_name} with args: {tool_arguments}")
+            async with session.post(url, json=tool_arguments, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    logger.info(f"Tool {tool_name} completed successfully")
+                    return result
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Tool {tool_name} failed with status {response.status}: {error_text}")
+                    return {"error": f"Tool execution failed: {error_text}"}
+                    
+        except Exception as e:
+            logger.error(f"Error calling Central tool {tool_name}: {e}")
+            return {"error": f"Tool execution error: {str(e)}"}
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection):
+        """Process frames and handle tool calls.
+        
+        Args:
+            frame: The incoming frame to process
+            direction: The direction of frame flow in the pipeline
+        """
+        await super().process_frame(frame, direction)
+
+        # Intercept tool call frames from the LLM
+        if isinstance(frame, FunctionCallInProgressFrame):
+            logger.info(f"Tool call intercepted: {frame.tool_call_id} - {frame.function_name}")
+            
+            # Execute the tool via Central API
+            result = await self._call_central_tool(
+                frame.function_name, 
+                frame.arguments
+            )
+            
+            # Create result frame to send back to LLM
+            result_frame = FunctionCallResultFrame(
+                tool_call_id=frame.tool_call_id,
+                function_name=frame.function_name,
+                result=json.dumps(result)
+            )
+            
+            logger.info(f"Sending tool result back to LLM: {frame.tool_call_id}")
+            await self.push_frame(result_frame, direction)
+            return  # Don't pass the original frame through
+            
+        # Pass all other frames through normally
+        await self.push_frame(frame, direction)
+
+    async def cleanup(self):
+        """Clean up HTTP session."""
+        if self._session:
+            await self._session.close()
+            self._session = None
+
+
 async def main():
     """Main bot execution function.
 
@@ -111,6 +219,7 @@ async def main():
     - Daily video transport with specific audio parameters for Gemini
     - Gemini Live multimodal model integration
     - Voice activity detection
+    - Tool processing for Central API integration
     - Animation processing
     - RTVI event handling
     """
@@ -176,19 +285,23 @@ async def main():
         context = OpenAILLMContext(messages)
         context_aggregator = llm.create_context_aggregator(context)
 
+        # Set up processors
         ta = TalkingAnimation()
+        tool_processor = ToolProcessor()
 
         #
         # RTVI events for Pipecat client UI
         #
         rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
+        # Pipeline with tool processor between LLM and talking animation
         pipeline = Pipeline(
             [
                 transport.input(),
                 rtvi,
                 context_aggregator.user(),
                 llm,
+                tool_processor,  # NEW: Intercepts tool calls and communicates with Central
                 ta,
                 transport.output(),
                 context_aggregator.assistant(),
@@ -228,9 +341,12 @@ async def main():
             print(f"Participant left: {participant}")
             await task.cancel()
 
-        runner = PipelineRunner()
-
-        await runner.run(task)
+        # Clean up tool processor on exit
+        try:
+            runner = PipelineRunner()
+            await runner.run(task)
+        finally:
+            await tool_processor.cleanup()
 
 
 if __name__ == "__main__":
