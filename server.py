@@ -216,9 +216,14 @@ async def rtvi_connect(request: Request, bot: str = None, username: str = Depend
         body = {}
     system_prompt = body.get("system_prompt")
     tools = body.get("tools")
+    learning_context = body.get("learning_context")
     custom_payload = None
-    if system_prompt is not None or tools is not None:
-        custom_payload = json.dumps({"system_prompt": system_prompt, "tools": tools})
+    if system_prompt is not None or tools is not None or learning_context is not None:
+        custom_payload = json.dumps({
+            "system_prompt": system_prompt, 
+            "tools": tools,
+            "learning_context": learning_context
+        })
 
     # Start the bot process
     try:
@@ -275,9 +280,14 @@ async def rtvi_connect_with_bot_type(request: Request, bot_type: str, username: 
         body = {}
     system_prompt = body.get("system_prompt")
     tools = body.get("tools")
+    learning_context = body.get("learning_context")
     custom_payload = None
-    if system_prompt is not None or tools is not None:
-        custom_payload = json.dumps({"system_prompt": system_prompt, "tools": tools})
+    if system_prompt is not None or tools is not None or learning_context is not None:
+        custom_payload = json.dumps({
+            "system_prompt": system_prompt, 
+            "tools": tools,
+            "learning_context": learning_context
+        })
 
     # Start the bot process
     try:

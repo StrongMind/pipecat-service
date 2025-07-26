@@ -114,11 +114,12 @@ class ToolProcessor(FrameProcessor):
     back to the conversation flow.
     """
 
-    def __init__(self, central_base_url: str = None, auth_token: str = None):
+    def __init__(self, central_base_url: str = None, auth_token: str = None, learning_context: dict = None):
         super().__init__()
         self._central_base_url = central_base_url or os.getenv('CENTRAL_API_URL', 'http://localhost:3001')
         self._auth_token = auth_token or os.getenv('CENTRAL_AUTH_TOKEN')
         self._session = None
+        self._learning_context = learning_context or {}
 
     async def _get_session(self):
         """Get or create HTTP session."""
@@ -156,6 +157,12 @@ class ToolProcessor(FrameProcessor):
             headers['Authorization'] = f"Bearer {self._auth_token}"
         headers['Content-Type'] = 'application/json'
         
+        if tool_name == 'learning_component':
+            if 'course_id' in self._learning_context:
+                tool_arguments['course_id'] = self._learning_context['course_id']
+            if 'component_id' in self._learning_context:
+                tool_arguments['component_id'] = self._learning_context['component_id']
+
         try:
             logger.info(f"Calling Central tool: {tool_name} with args: {tool_arguments}")
             async with session.post(url, json=tool_arguments, headers=headers) as response:
@@ -231,13 +238,19 @@ async def main():
     # Parse custom payload if provided
     system_prompt = None
     tools = None
+    learning_context = {}
     if args.custom:
         try:
             custom_data = json.loads(args.custom)
+            logger.info(f"🔍 Pipecat received custom_data: {custom_data}")
             system_prompt = custom_data.get("system_prompt")
+            logger.info(f"🔍 Pipecat extracted system_prompt: {system_prompt}")
             tools = custom_data.get("tools")
+            learning_context = custom_data.get("learning_context", {})
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse custom payload: {e}")
+    else:
+        logger.warning("🔍 Pipecat: No custom data received")
 
     async with aiohttp.ClientSession() as session:
         (room_url, token) = await configure(session)
@@ -259,11 +272,16 @@ async def main():
 
         # Always append the response instruction string
         response_instruction = AWSNovaSonicLLMService.AWAIT_TRIGGER_ASSISTANT_RESPONSE_INSTRUCTION
+        logger.info(f"🔍 Pipecat system_prompt check: {system_prompt}")
         if system_prompt:
             # Remove trailing whitespace and append the instruction
             system_instruction = system_prompt.rstrip() + "\n\n" + response_instruction
+            logger.info(f"🔍 Pipecat using provided system_prompt")
         else:
             system_instruction = "You are a elementary school teacher named Lexi.\n\n" + response_instruction
+            logger.info(f"🔍 Pipecat using fallback Lexi prompt")
+        
+        logger.info(f"🔍 Pipecat final system_instruction: {system_instruction[:100]}...")
 
         llm = AWSNovaSonicLLMService(
             secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
@@ -287,7 +305,7 @@ async def main():
 
         # Set up processors
         ta = TalkingAnimation()
-        tool_processor = ToolProcessor()
+        tool_processor = ToolProcessor(learning_context=learning_context)
 
         #
         # RTVI events for Pipecat client UI
