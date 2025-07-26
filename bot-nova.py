@@ -53,6 +53,9 @@ load_dotenv(override=True)
 logger.remove(0)
 logger.add(sys.stderr, level="DEBUG")
 
+
+# ToolProcessor class removed - using direct function callbacks with AWS Nova Sonic instead
+
 sprites = []
 script_dir = os.path.dirname(__file__)
 
@@ -291,6 +294,54 @@ async def main():
             tools=tools
         )
 
+        # Register function callbacks with the LLM service
+        async def learning_component_callback(params):
+            """Handle learning_component tool calls."""
+            logger.info(f"🔧 Function callback triggered: {params.function_name} with {params.arguments}")
+            try:
+                # Make a copy of arguments to avoid modifying the original
+                arguments = dict(params.arguments) if params.arguments else {}
+                
+                # Inject learning context
+                if learning_context and 'course_id' in learning_context:
+                    arguments['course_id'] = learning_context['course_id']
+                if learning_context and 'component_id' in learning_context:
+                    arguments['component_id'] = learning_context['component_id']
+                
+                logger.info(f"🔧 Enhanced arguments: {arguments}")
+                
+                # Call Central API
+                async with aiohttp.ClientSession() as session:
+                    url = "http://localhost:3000/api/nova_sonic/tools/learning_component"
+                    headers = {'Content-Type': 'application/json'}
+                    
+                    logger.info(f"🔧 Calling Central API: {url}")
+                    async with session.post(url, json=arguments, headers=headers) as response:
+                        if response.status == 200:
+                            result = await response.text()
+                            logger.info(f"🔧 Central API success: {response.status}, result length: {len(result) if result else 0}")
+                            
+                            # Return a simple text result that AWS Nova Sonic can parse
+                            success_message = "Learning content retrieved successfully. The content has been loaded for you."
+                            await params.result_callback(success_message)
+                        else:
+                            error_text = await response.text()
+                            logger.error(f"🔧 Central API error: {response.status} - {error_text}")
+                            await params.result_callback(f"I apologize, but I couldn't retrieve the learning content at this time. Please try again.")
+            except Exception as e:
+                logger.error(f"🔧 Function callback error: {e}")
+                await params.result_callback(f"I apologize, but there was an error retrieving the learning content. Please try again.")
+
+        # Try to register the callback (if the method exists)
+        if hasattr(llm, 'register_function'):
+            llm.register_function("learning_component", learning_component_callback)
+            logger.info("🔧 Registered learning_component function callback")
+        elif hasattr(llm, 'set_function_handler'):
+            llm.set_function_handler("learning_component", learning_component_callback)  
+            logger.info("🔧 Set learning_component function handler")
+        else:
+            logger.warning("🔧 Could not find method to register function callbacks on LLM service")
+
         messages = [
             {
                 "role": "system",
@@ -305,21 +356,21 @@ async def main():
 
         # Set up processors
         ta = TalkingAnimation()
-        tool_processor = ToolProcessor(learning_context=learning_context)
+        # tool_processor = ToolProcessor(learning_context=learning_context)  # REMOVED: Using direct function callbacks instead
 
         #
         # RTVI events for Pipecat client UI
         #
         rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
-        # Pipeline with tool processor between LLM and talking animation
+        # Pipeline without tool processor (using direct function callbacks instead)
         pipeline = Pipeline(
             [
                 transport.input(),
                 rtvi,
                 context_aggregator.user(),
                 llm,
-                tool_processor,  # NEW: Intercepts tool calls and communicates with Central
+                # tool_processor removed - using direct function callbacks instead
                 ta,
                 transport.output(),
                 context_aggregator.assistant(),
@@ -359,12 +410,13 @@ async def main():
             print(f"Participant left: {participant}")
             await task.cancel()
 
-        # Clean up tool processor on exit
+        # Run the pipeline
         try:
             runner = PipelineRunner()
             await runner.run(task)
         finally:
-            await tool_processor.cleanup()
+            # No cleanup needed - using direct function callbacks
+            pass
 
 
 if __name__ == "__main__":
