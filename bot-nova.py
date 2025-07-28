@@ -294,53 +294,41 @@ async def main():
             tools=tools
         )
 
-        # Register function callbacks with the LLM service
-        async def learning_component_callback(params):
-            """Handle learning_component tool calls."""
-            logger.info(f"🔧 Function callback triggered: {params.function_name} with {params.arguments}")
-            try:
-                # Make a copy of arguments to avoid modifying the original
-                arguments = dict(params.arguments) if params.arguments else {}
-                
-                # Inject learning context
-                if learning_context and 'course_id' in learning_context:
-                    arguments['course_id'] = learning_context['course_id']
-                if learning_context and 'component_id' in learning_context:
-                    arguments['component_id'] = learning_context['component_id']
-                
-                logger.info(f"🔧 Enhanced arguments: {arguments}")
-                
-                # Call Central API
-                async with aiohttp.ClientSession() as session:
-                    url = "http://localhost:3000/api/nova_sonic/tools/learning_component"
-                    headers = {'Content-Type': 'application/json'}
-                    
-                    logger.info(f"🔧 Calling Central API: {url}")
-                    async with session.post(url, json=arguments, headers=headers) as response:
-                        if response.status == 200:
-                            result = await response.text()
-                            logger.info(f"🔧 Central API success: {response.status}, result length: {len(result) if result else 0}")
-                            
-                            # Return a simple text result that AWS Nova Sonic can parse
-                            success_message = "Learning content retrieved successfully. The content has been loaded for you."
-                            await params.result_callback(success_message)
-                        else:
-                            error_text = await response.text()
-                            logger.error(f"🔧 Central API error: {response.status} - {error_text}")
-                            await params.result_callback(f"I apologize, but I couldn't retrieve the learning content at this time. Please try again.")
-            except Exception as e:
-                logger.error(f"🔧 Function callback error: {e}")
-                await params.result_callback(f"I apologize, but there was an error retrieving the learning content. Please try again.")
+        # Register function callbacks with LLM service (inherited from LLMService)
+        async def learning_component_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
+            """Callback for learning_component tool calls from LLM."""
+            logger.info(f"🔧 LLM callback: {function_name} with args: {arguments}")
+            # Inject learning context if available
+            if learning_context and 'course_id' in learning_context:
+                arguments['course_id'] = learning_context['course_id']
+            if learning_context and 'component_id' in learning_context:
+                arguments['component_id'] = learning_context['component_id']
+            
+            # Use ToolProcessor to execute the actual API call
+            result = await tool_processor._call_central_tool('learning_component', arguments)
+            logger.info(f"🔧 LLM callback result: {result}")
+            await result_callback(result)
 
-        # Try to register the callback (if the method exists)
-        if hasattr(llm, 'register_function'):
+        async def show_whiteboard_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
+            """Callback for show_whiteboard tool calls from LLM."""
+            logger.info(f"🔧 LLM callback: {function_name} with args: {arguments}")
+            result = await tool_processor._call_central_tool('show_whiteboard', arguments)
+            await result_callback(result)
+
+        async def show_video_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
+            """Callback for show_video tool calls from LLM."""
+            logger.info(f"🔧 LLM callback: {function_name} with args: {arguments}")
+            result = await tool_processor._call_central_tool('show_video', arguments)
+            await result_callback(result)
+
+        # Register the callbacks with the LLM service using correct method
+        if tools:
             llm.register_function("learning_component", learning_component_callback)
-            logger.info("🔧 Registered learning_component function callback")
-        elif hasattr(llm, 'set_function_handler'):
-            llm.set_function_handler("learning_component", learning_component_callback)  
-            logger.info("🔧 Set learning_component function handler")
-        else:
-            logger.warning("🔧 Could not find method to register function callbacks on LLM service")
+            llm.register_function("show_whiteboard", show_whiteboard_callback)
+            llm.register_function("show_video", show_video_callback)
+            logger.info("🔧 Tool callbacks registered with LLM service")
+
+        # AWS Nova Sonic uses both registered callbacks AND frame-based tool processing via ToolProcessor
 
         messages = [
             {
@@ -356,21 +344,21 @@ async def main():
 
         # Set up processors
         ta = TalkingAnimation()
-        # tool_processor = ToolProcessor(learning_context=learning_context)  # REMOVED: Using direct function callbacks instead
+        tool_processor = ToolProcessor(learning_context=learning_context)  # Context injection for learning_component
 
         #
         # RTVI events for Pipecat client UI
         #
         rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
-        # Pipeline without tool processor (using direct function callbacks instead)
+        # Pipeline with tool processor for proper AWS Nova Sonic integration
         pipeline = Pipeline(
             [
                 transport.input(),
                 rtvi,
                 context_aggregator.user(),
                 llm,
-                # tool_processor removed - using direct function callbacks instead
+                tool_processor,  # RE-ENABLED: Required for AWS Nova Sonic tool response parsing
                 ta,
                 transport.output(),
                 context_aggregator.assistant(),
