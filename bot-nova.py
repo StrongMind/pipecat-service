@@ -130,9 +130,7 @@ async def main():
     if args.custom:
         try:
             custom_data = json.loads(args.custom)
-            logger.info(f"🔍 Pipecat received custom_data: {custom_data}")
             system_prompt = custom_data.get("system_prompt")
-            logger.info(f"🔍 Pipecat extracted system_prompt: {system_prompt}")
             tools = custom_data.get("tools")
             learning_context = custom_data.get("learning_context", {})
         except json.JSONDecodeError as e:
@@ -160,17 +158,13 @@ async def main():
 
         # Always append the response instruction string
         response_instruction = AWSNovaSonicLLMService.AWAIT_TRIGGER_ASSISTANT_RESPONSE_INSTRUCTION
-        logger.info(f"🔍 Pipecat system_prompt check: {system_prompt}")
         if system_prompt:
-            # Remove trailing whitespace and append the instruction
             system_instruction = system_prompt.rstrip() + "\n\n" + response_instruction
             logger.info(f"🔍 Pipecat using provided system_prompt")
         else:
             system_instruction = "You are a elementary school teacher named Lexi.\n\n" + response_instruction
             logger.info(f"🔍 Pipecat using fallback Lexi prompt")
         
-        logger.info(f"🔍 Pipecat final system_instruction: {system_instruction[:100]}...")
-
         llm = AWSNovaSonicLLMService(
             secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
             access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -191,7 +185,6 @@ async def main():
             
             # Use ToolProcessor to execute the actual API call
             result = await tool_processor._call_central_tool('learning_component', arguments)
-            logger.info(f"🔧 LLM callback result: {result}")
             await result_callback(result)
 
         async def show_whiteboard_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
