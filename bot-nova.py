@@ -225,8 +225,6 @@ async def main():
 
         # Set up processors
         ta = TalkingAnimation()
-        # tool_processor already created above before callbacks
-
         #
         # RTVI events for Pipecat client UI
         #
