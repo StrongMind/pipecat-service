@@ -53,9 +53,6 @@ load_dotenv(override=True)
 logger.remove(0)
 logger.add(sys.stderr, level="DEBUG")
 
-
-# ToolProcessor class removed - using direct function callbacks with AWS Nova Sonic instead
-
 sprites = []
 script_dir = os.path.dirname(__file__)
 
@@ -205,7 +202,7 @@ class ToolProcessor(FrameProcessor):
             result_frame = FunctionCallResultFrame(
                 function_name=frame.function_name,
                 tool_call_id=frame.tool_call_id,
-                arguments=frame.arguments,  # ADD: Required arguments parameter
+                arguments=frame.arguments,
                 result=result
             )
             
@@ -359,7 +356,7 @@ async def main():
                 rtvi,
                 context_aggregator.user(),
                 llm,
-                tool_processor,  # RE-ENABLED: Required for AWS Nova Sonic tool response parsing
+                tool_processor,
                 ta,
                 transport.output(),
                 context_aggregator.assistant(),
