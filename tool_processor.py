@@ -124,4 +124,4 @@ class ToolProcessor(FrameProcessor):
         """Clean up HTTP session."""
         if self._session:
             await self._session.close()
-            self._session = None 
+            self._session = None
