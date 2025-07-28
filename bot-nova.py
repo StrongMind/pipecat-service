@@ -203,9 +203,10 @@ class ToolProcessor(FrameProcessor):
             
             # Create result frame to send back to LLM
             result_frame = FunctionCallResultFrame(
-                tool_call_id=frame.tool_call_id,
                 function_name=frame.function_name,
-                result=json.dumps(result)
+                tool_call_id=frame.tool_call_id,
+                arguments=frame.arguments,  # ADD: Required arguments parameter
+                result=result
             )
             
             logger.info(f"Sending tool result back to LLM: {frame.tool_call_id}")
