@@ -173,6 +173,9 @@ async def main():
             tools=tools
         )
 
+        # Create tool processor BEFORE callbacks (so callbacks can reference it)
+        tool_processor = ToolProcessor(learning_context=learning_context)
+
         # Register function callbacks with LLM service (inherited from LLMService)
         async def learning_component_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
             """Callback for learning_component tool calls from LLM."""
@@ -187,23 +190,23 @@ async def main():
             result = await tool_processor._call_central_tool('learning_component', arguments)
             await result_callback(result)
 
-        async def show_whiteboard_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
-            """Callback for show_whiteboard tool calls from LLM."""
+        async def whiteboard_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
+            """Callback for whiteboard tool calls from LLM."""
             logger.info(f"🔧 LLM callback: {function_name} with args: {arguments}")
-            result = await tool_processor._call_central_tool('show_whiteboard', arguments)
+            result = await tool_processor._call_central_tool('whiteboard', arguments)
             await result_callback(result)
 
-        async def show_video_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
-            """Callback for show_video tool calls from LLM."""
+        async def video_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
+            """Callback for video tool calls from LLM."""
             logger.info(f"🔧 LLM callback: {function_name} with args: {arguments}")
-            result = await tool_processor._call_central_tool('show_video', arguments)
+            result = await tool_processor._call_central_tool('video', arguments)
             await result_callback(result)
 
         # Register the callbacks with the LLM service using correct method
         if tools:
             llm.register_function("learning_component", learning_component_callback)
-            llm.register_function("show_whiteboard", show_whiteboard_callback)
-            llm.register_function("show_video", show_video_callback)
+            llm.register_function("whiteboard", whiteboard_callback)
+            llm.register_function("video", video_callback)
             logger.info("🔧 Tool callbacks registered with LLM service")
 
         # AWS Nova Sonic uses both registered callbacks AND frame-based tool processing via ToolProcessor
@@ -222,7 +225,7 @@ async def main():
 
         # Set up processors
         ta = TalkingAnimation()
-        tool_processor = ToolProcessor(learning_context=learning_context)  # Context injection for learning_component
+        # tool_processor already created above before callbacks
 
         #
         # RTVI events for Pipecat client UI

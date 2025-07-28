@@ -38,10 +38,12 @@ class ToolProcessor(FrameProcessor):
         return self._session
 
     async def _call_central_tool(self, tool_name: str, tool_arguments: dict) -> dict:
-        """Call Central API to execute a tool.
+        """Call Central unified API to execute a tool.
+        
+        Uses the RESTful endpoint POST /api/nova_sonic/tools/:tool_name
         
         Args:
-            tool_name: Name of the tool to execute
+            tool_name: Name of the tool to execute (learning_component, show_whiteboard, show_video)
             tool_arguments: Arguments for the tool
             
         Returns:
@@ -49,18 +51,8 @@ class ToolProcessor(FrameProcessor):
         """
         session = await self._get_session()
         
-        # Map tool names to Central endpoints
-        endpoint_map = {
-            'learning_component': '/api/nova_sonic/tools/learning_component',
-            'show_whiteboard': '/api/nova_sonic/tools/show_whiteboard', 
-            'show_video': '/api/nova_sonic/tools/show_video'
-        }
-        
-        endpoint = endpoint_map.get(tool_name)
-        if not endpoint:
-            logger.error(f"Unknown tool: {tool_name}")
-            return {"error": f"Unknown tool: {tool_name}"}
-            
+        # Use unified RESTful endpoint for all tools
+        endpoint = f"/api/nova_sonic/tools/{tool_name}"
         url = f"{self._central_base_url}{endpoint}"
         headers = {}
         if self._auth_token:
