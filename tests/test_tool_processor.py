@@ -467,4 +467,4 @@ class TestIntegrationScenarios:
         
         # Then
         call_args = mock_session.post.call_args
-        assert call_args[1]['json'] == special_args 
+        assert call_args[1]['json'] == special_args
