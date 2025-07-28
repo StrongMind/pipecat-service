@@ -127,12 +127,18 @@ async def main():
     system_prompt = None
     tools = None
     learning_context = {}
+    bearer_token = None
     if args.custom:
         try:
             custom_data = json.loads(args.custom)
             system_prompt = custom_data.get("system_prompt")
             tools = custom_data.get("tools")
             learning_context = custom_data.get("learning_context", {})
+            bearer_token = custom_data.get("bearer_token")
+            if bearer_token:
+                logger.info(f"🔑 Pipecat: Using proxied bearer token from Central (length: {len(bearer_token)})")
+            else:
+                logger.warning("⚠️  Pipecat: No bearer token provided from Central - tool calls will fail")
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse custom payload: {e}")
     else:
@@ -174,7 +180,7 @@ async def main():
         )
 
         # Create tool processor BEFORE callbacks (so callbacks can reference it)
-        tool_processor = ToolProcessor(learning_context=learning_context)
+        tool_processor = ToolProcessor(auth_token=bearer_token, learning_context=learning_context)
 
         # Register function callbacks with LLM service (inherited from LLMService)
         async def learning_component_callback(function_name, tool_call_id, arguments, llm, context, result_callback):

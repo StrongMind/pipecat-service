@@ -27,7 +27,7 @@ class ToolProcessor(FrameProcessor):
     def __init__(self, central_base_url: str = None, auth_token: str = None, learning_context: dict = None):
         super().__init__()
         self._central_base_url = central_base_url or os.getenv('CENTRAL_API_URL', 'http://localhost:3001')
-        self._auth_token = auth_token or os.getenv('CENTRAL_AUTH_TOKEN')
+        self._auth_token = auth_token
         self._session = None
         self._learning_context = learning_context or {}
 
@@ -54,10 +54,15 @@ class ToolProcessor(FrameProcessor):
         # Use unified RESTful endpoint for all tools
         endpoint = f"/api/nova_sonic/tools/{tool_name}"
         url = f"{self._central_base_url}{endpoint}"
-        headers = {}
+        headers = {'Content-Type': 'application/json'}
         if self._auth_token:
-            headers['Authorization'] = f"Bearer {self._auth_token}"
-        headers['Content-Type'] = 'application/json'
+            # Always send as Bearer token (works for both user tokens and API keys)
+            if not self._auth_token.startswith('Bearer '):
+                headers['Authorization'] = f'Bearer {self._auth_token}'
+            else:
+                headers['Authorization'] = self._auth_token
+        else:
+            logger.error("No bearer token provided from Central - tool calls will fail")
         
         if tool_name == 'learning_component':
             if 'course_id' in self._learning_context:
