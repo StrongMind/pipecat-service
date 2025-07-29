@@ -162,14 +162,14 @@ async def main():
             ),
         )
 
-        # Always append the response instruction string
-        response_instruction = AWSNovaSonicLLMService.AWAIT_TRIGGER_ASSISTANT_RESPONSE_INSTRUCTION
-        if system_prompt:
-            system_instruction = system_prompt.rstrip() + "\n\n" + response_instruction
-            logger.info(f"🔍 Pipecat using provided system_prompt")
-        else:
-            system_instruction = "You are a elementary school teacher named Lexi.\n\n" + response_instruction
-            logger.info(f"🔍 Pipecat using fallback Lexi prompt")
+        if not system_prompt:
+            raise ValueError(
+                "system_prompt is required for bot initialization. "
+                "Please provide a system prompt that defines the bot's behavior."
+            )
+
+        system_instruction = system_prompt.rstrip()
+        logger.info(f"🔍 Pipecat using provided system_prompt")
         
         llm = AWSNovaSonicLLMService(
             secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
@@ -197,36 +197,21 @@ async def main():
             for i, tool in enumerate(tools):
                 logger.info(f"🔧 Tool {i}: {tool}")
                 
-                # Try different ways to extract tool name
-                tool_name = None
+                # Tools should be simple strings with tool names
                 if isinstance(tool, str):
-                    # Simple string format
                     tool_name = tool
-                elif isinstance(tool, dict):
-                    # Central's toolSpec format: {"toolSpec": {"name": "tool_name"}}
-                    if 'toolSpec' in tool and isinstance(tool['toolSpec'], dict):
-                        tool_name = tool['toolSpec'].get('name')
-                    # OpenAI format: {"type": "function", "function": {"name": "tool_name"}}
-                    elif 'function' in tool and isinstance(tool['function'], dict):
-                        tool_name = tool['function'].get('name')
-                    # Direct format: {"name": "tool_name"}
-                    elif 'name' in tool:
-                        tool_name = tool['name']
-                
-                if tool_name:
-                    llm.register_function(tool_name, generic_tool_callback)
-                    logger.info(f"🔧 ✅ Registered tool callback: {tool_name}")
                 else:
-                    logger.warning(f"🔧 ❌ Could not extract tool name from tool {i}: {tool}")
+                    raise ValueError(f"Tool must be a string, got {type(tool)}: {tool}")
+
+                llm.register_function(tool_name, generic_tool_callback)
+                logger.info(f"🔧 ✅ Registered tool callback: {tool_name}")
             logger.info("🔧 All tool callbacks registered with LLM service")
         else:
-            logger.warning("🔧 ⚠️ No tools provided - registering fallback tools")
-            # Register common tools that Central expects to be available
-            fallback_tools = ["learning_component", "whiteboard", "video"]
-            for tool_name in fallback_tools:
-                llm.register_function(tool_name, generic_tool_callback)
-                logger.info(f"🔧 ✅ Registered fallback tool callback: {tool_name}")
-            logger.info("🔧 Fallback tool callbacks registered")
+            raise ValueError(
+                "No tools provided for bot initialization. "
+                "Tools are required for the bot to function properly. "
+                "Please provide a list of tools in the bot configuration."
+            )
 
         # AWS Nova Sonic uses both registered callbacks AND frame-based tool processing via ToolProcessor
 
