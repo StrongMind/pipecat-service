@@ -197,11 +197,14 @@ async def main():
             for i, tool in enumerate(tools):
                 logger.info(f"🔧 Tool {i}: {tool}")
                 
-                # Tools should be simple strings with tool names
+                # Extract tool name from tool definition or use string directly
                 if isinstance(tool, str):
                     tool_name = tool
+                elif isinstance(tool, dict) and 'toolSpec' in tool:
+                    tool_name = tool['toolSpec']['name']
+                    logger.info(f"🔧 Extracted tool name '{tool_name}' from tool definition")
                 else:
-                    raise ValueError(f"Tool must be a string, got {type(tool)}: {tool}")
+                    raise ValueError(f"Tool must be a string or tool definition dict with 'toolSpec', got {type(tool)}: {tool}")
 
                 llm.register_function(tool_name, generic_tool_callback)
                 logger.info(f"🔧 ✅ Registered tool callback: {tool_name}")
