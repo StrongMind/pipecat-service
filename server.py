@@ -216,7 +216,6 @@ async def rtvi_connect(request: Request, bot: str = None, username: str = Depend
         body = {}
     system_prompt = body.get("system_prompt")
     tools = body.get("tools")
-    learning_context = body.get("learning_context")
     
     # Extract bearer token from Central's Authorization header
     auth_header = request.headers.get("authorization")
@@ -225,11 +224,10 @@ async def rtvi_connect(request: Request, bot: str = None, username: str = Depend
         bearer_token = auth_header.split(" ", 1)[1]
     
     custom_payload = None
-    if system_prompt is not None or tools is not None or learning_context is not None or bearer_token is not None:
+    if system_prompt is not None or tools is not None or bearer_token is not None:
         custom_payload = json.dumps({
             "system_prompt": system_prompt, 
             "tools": tools,
-            "learning_context": learning_context,
             "bearer_token": bearer_token
         })
 
@@ -288,7 +286,6 @@ async def rtvi_connect_with_bot_type(request: Request, bot_type: str, username: 
         body = {}
     system_prompt = body.get("system_prompt")
     tools = body.get("tools")
-    learning_context = body.get("learning_context")
     
     # Extract bearer token from Central's Authorization header
     auth_header = request.headers.get("authorization")
@@ -297,11 +294,10 @@ async def rtvi_connect_with_bot_type(request: Request, bot_type: str, username: 
         bearer_token = auth_header.split(" ", 1)[1]
     
     custom_payload = None
-    if system_prompt is not None or tools is not None or learning_context is not None or bearer_token is not None:
+    if system_prompt is not None or tools is not None or bearer_token is not None:
         custom_payload = json.dumps({
             "system_prompt": system_prompt, 
             "tools": tools,
-            "learning_context": learning_context,
             "bearer_token": bearer_token
         })
 

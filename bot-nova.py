@@ -130,8 +130,10 @@ async def main():
     if args.custom:
         try:
             custom_data = json.loads(args.custom)
+            logger.info(f"🔍 Received custom_data: {custom_data}")
             system_prompt = custom_data.get("system_prompt")
             tools = custom_data.get("tools")
+            logger.info(f"🔍 Extracted tools: {tools}")
             bearer_token = custom_data.get("bearer_token")
             if bearer_token:
                 logger.info(f"🔑 Pipecat: Using proxied bearer token from Central (length: {len(bearer_token)})")
@@ -191,12 +193,40 @@ async def main():
 
         # Register the generic callback for all available tools
         if tools:
-            for tool in tools:
-                tool_name = tool.get('function', {}).get('name')
+            logger.info(f"🔧 Processing {len(tools)} tools for registration")
+            for i, tool in enumerate(tools):
+                logger.info(f"🔧 Tool {i}: {tool}")
+                
+                # Try different ways to extract tool name
+                tool_name = None
+                if isinstance(tool, str):
+                    # Simple string format
+                    tool_name = tool
+                elif isinstance(tool, dict):
+                    # Central's toolSpec format: {"toolSpec": {"name": "tool_name"}}
+                    if 'toolSpec' in tool and isinstance(tool['toolSpec'], dict):
+                        tool_name = tool['toolSpec'].get('name')
+                    # OpenAI format: {"type": "function", "function": {"name": "tool_name"}}
+                    elif 'function' in tool and isinstance(tool['function'], dict):
+                        tool_name = tool['function'].get('name')
+                    # Direct format: {"name": "tool_name"}
+                    elif 'name' in tool:
+                        tool_name = tool['name']
+                
                 if tool_name:
                     llm.register_function(tool_name, generic_tool_callback)
-                    logger.info(f"🔧 Registered tool callback: {tool_name}")
+                    logger.info(f"🔧 ✅ Registered tool callback: {tool_name}")
+                else:
+                    logger.warning(f"🔧 ❌ Could not extract tool name from tool {i}: {tool}")
             logger.info("🔧 All tool callbacks registered with LLM service")
+        else:
+            logger.warning("🔧 ⚠️ No tools provided - registering fallback tools")
+            # Register common tools that Central expects to be available
+            fallback_tools = ["learning_component", "whiteboard", "video"]
+            for tool_name in fallback_tools:
+                llm.register_function(tool_name, generic_tool_callback)
+                logger.info(f"🔧 ✅ Registered fallback tool callback: {tool_name}")
+            logger.info("🔧 Fallback tool callbacks registered")
 
         # AWS Nova Sonic uses both registered callbacks AND frame-based tool processing via ToolProcessor
 
