@@ -284,8 +284,9 @@ async def main():
             print(f"Participant left: {participant}")
             await task.cancel()
 
-        # Run the pipeline task
-        await task.run()
+        # Run the pipeline task using PipelineRunner
+        runner = PipelineRunner()
+        await runner.run(task)
 
 
 if __name__ == "__main__":
