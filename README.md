@@ -8,7 +8,7 @@ A template voice agent for [Pipecat Cloud](https://www.daily.co/products/pipecat
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.12+
 - Linux, MacOS, or Windows Subsystem for Linux (WSL)
 - [Docker](https://www.docker.com) and a Docker repository (e.g., [Docker Hub](https://hub.docker.com))
 - A Docker Hub account (or other container registry account)
@@ -69,10 +69,10 @@ export OPENAI_API_KEY="your_openai_key"
 
 > Your `DAILY_API_KEY` can be found at [https://pipecat.daily.co](https://pipecat.daily.co) under the `Settings` in the `Daily (WebRTC)` tab.
 
-First install requirements:
+First install development requirements (includes testing and linting tools):
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 Then, launch the bot.py script locally:

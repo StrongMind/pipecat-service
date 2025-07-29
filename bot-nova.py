@@ -46,6 +46,8 @@ from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIPro
 from pipecat.services.aws_nova_sonic import AWSNovaSonicLLMService
 from pipecat.transports.services.daily import DailyParams, DailyTransport
 
+from tool_processor import ToolProcessor
+
 load_dotenv(override=True)
 
 logger.remove(0)
@@ -104,6 +106,7 @@ class TalkingAnimation(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
+
 async def main():
     """Main bot execution function.
 
@@ -111,6 +114,7 @@ async def main():
     - Daily video transport with specific audio parameters for Gemini
     - Gemini Live multimodal model integration
     - Voice activity detection
+    - Tool processing for Central API integration
     - Animation processing
     - RTVI event handling
     """
@@ -122,13 +126,23 @@ async def main():
     # Parse custom payload if provided
     system_prompt = None
     tools = None
+    bearer_token = None
     if args.custom:
         try:
             custom_data = json.loads(args.custom)
+            logger.info(f"🔍 Received custom_data: {custom_data}")
             system_prompt = custom_data.get("system_prompt")
             tools = custom_data.get("tools")
+            logger.info(f"🔍 Extracted tools: {tools}")
+            bearer_token = custom_data.get("bearer_token")
+            if bearer_token:
+                logger.info(f"🔑 Pipecat: Using proxied bearer token from Central (length: {len(bearer_token)})")
+            else:
+                logger.warning("⚠️  Pipecat: No bearer token provided from Central - tool calls will fail")
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse custom payload: {e}")
+    else:
+        logger.warning("🔍 Pipecat: No custom data received")
 
     async with aiohttp.ClientSession() as session:
         (room_url, token) = await configure(session)
@@ -148,14 +162,15 @@ async def main():
             ),
         )
 
-        # Always append the response instruction string
-        response_instruction = AWSNovaSonicLLMService.AWAIT_TRIGGER_ASSISTANT_RESPONSE_INSTRUCTION
-        if system_prompt:
-            # Remove trailing whitespace and append the instruction
-            system_instruction = system_prompt.rstrip() + "\n\n" + response_instruction
-        else:
-            system_instruction = "You are a elementary school teacher named Lexi.\n\n" + response_instruction
+        if not system_prompt:
+            raise ValueError(
+                "system_prompt is required for bot initialization. "
+                "Please provide a system prompt that defines the bot's behavior."
+            )
 
+        system_instruction = system_prompt.rstrip()
+        logger.info(f"🔍 Pipecat using provided system_prompt")
+        
         llm = AWSNovaSonicLLMService(
             secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
             access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -163,6 +178,45 @@ async def main():
             voice_id="tiffany",  # matthew, tiffany, amy
             tools=tools
         )
+
+        # Create tool processor BEFORE callbacks (so callbacks can reference it)
+        tool_processor = ToolProcessor(auth_token=bearer_token)
+
+        # Register dynamic function callback with LLM service
+        async def generic_tool_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
+            """Generic callback for all tool calls from LLM."""
+            logger.info(f"🔧 LLM callback: {function_name} with args: {arguments}")
+            
+            # Use ToolProcessor to execute the actual API call with the exact tool name from LLM
+            result = await tool_processor._call_central_tool(function_name, arguments)
+            await result_callback(result)
+
+        # Register the generic callback for all available tools
+        if tools:
+            logger.info(f"🔧 Processing {len(tools)} tools for registration")
+            for i, tool in enumerate(tools):
+                logger.info(f"🔧 Tool {i}: {tool}")
+                
+                # Extract tool name from tool definition or use string directly
+                if isinstance(tool, str):
+                    tool_name = tool
+                elif isinstance(tool, dict) and 'toolSpec' in tool:
+                    tool_name = tool['toolSpec']['name']
+                    logger.info(f"🔧 Extracted tool name '{tool_name}' from tool definition")
+                else:
+                    raise ValueError(f"Tool must be a string or tool definition dict with 'toolSpec', got {type(tool)}: {tool}")
+
+                llm.register_function(tool_name, generic_tool_callback)
+                logger.info(f"🔧 ✅ Registered tool callback: {tool_name}")
+            logger.info("🔧 All tool callbacks registered with LLM service")
+        else:
+            raise ValueError(
+                "No tools provided for bot initialization. "
+                "Tools are required for the bot to function properly. "
+                "Please provide a list of tools in the bot configuration."
+            )
+
+        # AWS Nova Sonic uses both registered callbacks AND frame-based tool processing via ToolProcessor
 
         messages = [
             {
@@ -176,19 +230,21 @@ async def main():
         context = OpenAILLMContext(messages)
         context_aggregator = llm.create_context_aggregator(context)
 
+        # Set up processors
         ta = TalkingAnimation()
-
         #
         # RTVI events for Pipecat client UI
         #
         rtvi = RTVIProcessor(config=RTVIConfig(config=[]))
 
+        # Pipeline with tool processor for proper AWS Nova Sonic integration
         pipeline = Pipeline(
             [
                 transport.input(),
                 rtvi,
                 context_aggregator.user(),
                 llm,
+                tool_processor,
                 ta,
                 transport.output(),
                 context_aggregator.assistant(),
@@ -228,8 +284,8 @@ async def main():
             print(f"Participant left: {participant}")
             await task.cancel()
 
+        # Run the pipeline task using PipelineRunner
         runner = PipelineRunner()
-
         await runner.run(task)
 
 

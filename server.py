@@ -16,7 +16,7 @@ direct browser access and RTVI client connections. It handles:
 
 Requirements:
 - Daily API key (set in .env file)
-- Python 3.10+
+- Python 3.12+
 - FastAPI
 - Running bot implementation
 - JWT identity server (optional, configurable via environment variables)
@@ -55,13 +55,13 @@ daily_helpers = {}
 
 def get_bot_file(bot_type: str = None):
     """Get the bot implementation file based on bot_type or environment variable.
-    
+
     Args:
         bot_type (str, optional): Bot implementation type. If None, uses BOT_IMPLEMENTATION env var.
-        
+
     Returns:
         str: The bot file module name (e.g., "bot-nova")
-        
+
     Raises:
         ValueError: If the bot_type is not valid
     """
@@ -69,11 +69,11 @@ def get_bot_file(bot_type: str = None):
         bot_implementation = bot_type.lower().strip()
     else:
         bot_implementation = os.getenv("BOT_IMPLEMENTATION", "nova").lower().strip()
-    
+
     # If blank or None, default to nova
     if not bot_implementation:
         bot_implementation = "nova"
-    
+
     if bot_implementation not in ["openai", "gemini", "nova", "polly"]:
         raise ValueError(
             f"Invalid bot implementation: {bot_implementation}. Must be 'openai', 'gemini', 'nova', or 'polly'"
@@ -216,9 +216,20 @@ async def rtvi_connect(request: Request, bot: str = None, username: str = Depend
         body = {}
     system_prompt = body.get("system_prompt")
     tools = body.get("tools")
+    
+    # Extract bearer token from Central's Authorization header
+    auth_header = request.headers.get("authorization")
+    bearer_token = None
+    if auth_header and auth_header.startswith("Bearer "):
+        bearer_token = auth_header.split(" ", 1)[1]
+    
     custom_payload = None
-    if system_prompt is not None or tools is not None:
-        custom_payload = json.dumps({"system_prompt": system_prompt, "tools": tools})
+    if system_prompt is not None or tools is not None or bearer_token is not None:
+        custom_payload = json.dumps({
+            "system_prompt": system_prompt, 
+            "tools": tools,
+            "bearer_token": bearer_token
+        })
 
     # Start the bot process
     try:
@@ -275,9 +286,20 @@ async def rtvi_connect_with_bot_type(request: Request, bot_type: str, username: 
         body = {}
     system_prompt = body.get("system_prompt")
     tools = body.get("tools")
+    
+    # Extract bearer token from Central's Authorization header
+    auth_header = request.headers.get("authorization")
+    bearer_token = None
+    if auth_header and auth_header.startswith("Bearer "):
+        bearer_token = auth_header.split(" ", 1)[1]
+    
     custom_payload = None
-    if system_prompt is not None or tools is not None:
-        custom_payload = json.dumps({"system_prompt": system_prompt, "tools": tools})
+    if system_prompt is not None or tools is not None or bearer_token is not None:
+        custom_payload = json.dumps({
+            "system_prompt": system_prompt, 
+            "tools": tools,
+            "bearer_token": bearer_token
+        })
 
     # Start the bot process
     try:
@@ -347,7 +369,7 @@ async def start_agent_with_bot_type(request: Request, bot_type: str, username: s
             status_code=400, 
             detail=f"Invalid bot type: {bot_type}. Must be 'openai', 'gemini', 'nova', or 'polly'"
         )
-    
+
     print(f"Creating room with bot type: {bot_type} for user: {username}")
     room_url, token = await create_room_and_token()
     print(f"Room URL: {room_url}")
