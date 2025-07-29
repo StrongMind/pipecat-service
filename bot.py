@@ -42,7 +42,7 @@ async def main(transport: DailyTransport):
     Args:
         transport: The DailyTransport instance
     """
-    
+
     llm = AWSNovaSonicLLMService(
         secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
         access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -86,7 +86,7 @@ async def main(transport: DailyTransport):
         ),
     )
 
-     # Handle client connection event
+    # Handle client connection event
     @transport.event_handler("on_first_participant_joined")
     async def on_first_participant_joined(transport, participant):
         logger.info("First participant joined: {}", participant["id"])
@@ -97,7 +97,6 @@ async def main(transport: DailyTransport):
         # Nova Sonic. Note that this trigger requires a special corresponding bit of text in the
         # system instruction. In the future, simply queueing the context frame should be sufficient.
         await llm.trigger_assistant_response()
-
 
     @transport.event_handler("on_participant_left")
     async def on_participant_left(transport, participant, reason):

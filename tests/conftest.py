@@ -48,7 +48,6 @@ def sample_tool_arguments():
     }
 
 
-
 @pytest.fixture
 def function_call_frame(sample_tool_arguments):
     """Sample FunctionCallInProgressFrame for testing."""

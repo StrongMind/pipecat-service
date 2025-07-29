@@ -1,7 +1,7 @@
 """Behavior-driven specifications for ToolProcessor.
 
-This module contains comprehensive tests that specify the behavior of the ToolProcessor
-class using a Given-When-Then approach with pytest.
+This module contains comprehensive tests that specify the behavior of the
+ToolProcessor class using a Given-When-Then approach with pytest.
 """
 
 import os
@@ -29,13 +29,15 @@ class TestToolProcessorInitialization:
         """
         # Given & When
         processor = ToolProcessor()
-        
+
         # Then
         assert processor._central_base_url == "http://localhost:3001"
         assert processor._auth_token is None
         assert processor._session is None
 
-    def test_given_custom_parameters_when_initializing_then_uses_provided_values(self):
+    def test_given_custom_parameters_when_initializing_then_uses_provided_values(
+        self
+    ):
         """
         Given: Custom parameters are provided
         When: A ToolProcessor is created
@@ -44,19 +46,21 @@ class TestToolProcessorInitialization:
         # Given
         base_url = "https://custom-api.com"
         auth_token = "custom_token"
-        
+
         # When
         processor = ToolProcessor(
             central_base_url=base_url,
             auth_token=auth_token
         )
-        
+
         # Then
         assert processor._central_base_url == base_url
         assert processor._auth_token == auth_token
 
     @patch.dict(os.environ, {'CENTRAL_API_URL': 'https://env-api.com'})
-    def test_given_environment_variable_when_no_base_url_provided_then_uses_env_value(self):
+    def test_given_environment_variable_when_no_base_url_provided_then_uses_env_value(
+        self
+    ):
         """
         Given: CENTRAL_API_URL environment variable is set
         When: A ToolProcessor is created without base_url
@@ -64,7 +68,7 @@ class TestToolProcessorInitialization:
         """
         # Given & When
         processor = ToolProcessor()
-        
+
         # Then
         assert processor._central_base_url == "https://env-api.com"
 
@@ -73,7 +77,9 @@ class TestSessionManagement:
     """Specifications for HTTP session management behavior."""
 
     @pytest.mark.asyncio
-    async def test_given_no_existing_session_when_getting_session_then_creates_new_session(self, tool_processor):
+    async def test_given_no_existing_session_when_getting_session_then_creates_new_session(
+        self, tool_processor
+    ):
         """
         Given: No existing HTTP session
         When: _get_session is called
@@ -81,21 +87,23 @@ class TestSessionManagement:
         """
         # Given
         assert tool_processor._session is None
-        
+
         # When
         with patch('aiohttp.ClientSession') as mock_session_class:
             mock_session = AsyncMock()
             mock_session_class.return_value = mock_session
-            
+
             session = await tool_processor._get_session()
-        
+
         # Then
         assert session == mock_session
         assert tool_processor._session == mock_session
         mock_session_class.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_given_existing_session_when_getting_session_then_returns_existing_session(self, tool_processor):
+    async def test_given_existing_session_when_getting_session_then_returns_existing_session(
+        self, tool_processor
+    ):
         """
         Given: An existing HTTP session
         When: _get_session is called
@@ -104,15 +112,17 @@ class TestSessionManagement:
         # Given
         existing_session = AsyncMock()
         tool_processor._session = existing_session
-        
+
         # When
         session = await tool_processor._get_session()
-        
+
         # Then
         assert session == existing_session
 
     @pytest.mark.asyncio
-    async def test_given_active_session_when_cleanup_called_then_closes_session(self, tool_processor):
+    async def test_given_active_session_when_cleanup_called_then_closes_session(
+        self, tool_processor
+    ):
         """
         Given: An active HTTP session
         When: cleanup is called
@@ -121,16 +131,18 @@ class TestSessionManagement:
         # Given
         mock_session = AsyncMock()
         tool_processor._session = mock_session
-        
+
         # When
         await tool_processor.cleanup()
-        
+
         # Then
         mock_session.close.assert_called_once()
         assert tool_processor._session is None
 
     @pytest.mark.asyncio
-    async def test_given_no_session_when_cleanup_called_then_does_nothing(self, tool_processor):
+    async def test_given_no_session_when_cleanup_called_then_does_nothing(
+        self, tool_processor
+    ):
         """
         Given: No active session
         When: cleanup is called
@@ -138,7 +150,7 @@ class TestSessionManagement:
         """
         # Given
         assert tool_processor._session is None
-        
+
         # When & Then (should not raise)
         await tool_processor.cleanup()
 
@@ -159,12 +171,15 @@ class TestCentralToolCalling:
         tool_name = "test_tool"
         mock_session.post.return_value.__aenter__.return_value = mock_response
         configured_tool_processor._session = mock_session
-        
+
         # When
-        result = await configured_tool_processor._call_central_tool(tool_name, sample_tool_arguments)
-        
+        result = await configured_tool_processor._call_central_tool(
+            tool_name, sample_tool_arguments
+        )
+
         # Then
-        assert result == {"success": True, "result": "test_result"}
+        expected_result = {"success": True, "result": "test_result"}
+        assert result == expected_result
         mock_session.post.assert_called_once_with(
             "https://test-central-api.com/api/nova_sonic/tools/test_tool",
             json=sample_tool_arguments,
@@ -176,7 +191,8 @@ class TestCentralToolCalling:
 
     @pytest.mark.asyncio
     async def test_given_bearer_token_prefix_when_calling_central_tool_then_uses_token_as_is(
-        self, tool_processor, mock_session, mock_response, sample_tool_arguments
+        self, tool_processor, mock_session, mock_response, 
+        sample_tool_arguments
     ):
         """
         Given: An auth token with Bearer prefix
@@ -187,15 +203,14 @@ class TestCentralToolCalling:
         tool_processor._auth_token = "Bearer already_prefixed_token"
         tool_processor._session = mock_session
         mock_session.post.return_value.__aenter__.return_value = mock_response
-        
+
         # When
         await tool_processor._call_central_tool("test_tool", sample_tool_arguments)
-        
+
         # Then
         call_args = mock_session.post.call_args
-        assert call_args[1]['headers']['Authorization'] == "Bearer already_prefixed_token"
-
-
+        expected_auth = "Bearer already_prefixed_token"
+        assert call_args[1]['headers']['Authorization'] == expected_auth
 
     @pytest.mark.asyncio
     async def test_given_api_error_response_when_calling_central_tool_then_returns_error_result(
@@ -212,12 +227,15 @@ class TestCentralToolCalling:
         mock_response.text.return_value = "Bad Request"
         mock_session.post.return_value.__aenter__.return_value = mock_response
         tool_processor._session = mock_session
-        
+
         # When
-        result = await tool_processor._call_central_tool("test_tool", sample_tool_arguments)
-        
+        result = await tool_processor._call_central_tool(
+            "test_tool", sample_tool_arguments
+        )
+
         # Then
-        assert result == {"error": "Tool execution failed: Bad Request"}
+        expected_error = {"error": "Tool execution failed: Bad Request"}
+        assert result == expected_error
 
     @pytest.mark.asyncio
     async def test_given_network_exception_when_calling_central_tool_then_returns_error_result(
@@ -231,16 +249,20 @@ class TestCentralToolCalling:
         # Given
         mock_session.post.side_effect = aiohttp.ClientError("Network error")
         tool_processor._session = mock_session
-        
+
         # When
-        result = await tool_processor._call_central_tool("test_tool", sample_tool_arguments)
-        
+        result = await tool_processor._call_central_tool(
+            "test_tool", sample_tool_arguments
+        )
+
         # Then
-        assert result == {"error": "Tool execution error: Network error"}
+        expected_error = {"error": "Tool execution error: Network error"}
+        assert result == expected_error
 
     @pytest.mark.asyncio
     async def test_given_no_auth_token_when_calling_central_tool_then_logs_error_and_continues(
-        self, tool_processor, mock_session, mock_response, sample_tool_arguments
+        self, tool_processor, mock_session, mock_response, 
+        sample_tool_arguments
     ):
         """
         Given: No authentication token is provided
@@ -251,15 +273,18 @@ class TestCentralToolCalling:
         tool_processor._auth_token = None
         tool_processor._session = mock_session
         mock_session.post.return_value.__aenter__.return_value = mock_response
-        
+
         # When
         with patch('tool_processor.logger') as mock_logger:
-            await tool_processor._call_central_tool("test_tool", sample_tool_arguments)
-        
+            await tool_processor._call_central_tool(
+                "test_tool", sample_tool_arguments
+            )
+
         # Then
-        mock_logger.error.assert_called_with(
+        expected_error_message = (
             "No bearer token provided from Central - tool calls will fail"
         )
+        mock_logger.error.assert_called_with(expected_error_message)
         call_args = mock_session.post.call_args
         assert 'Authorization' not in call_args[1]['headers']
 
@@ -269,7 +294,8 @@ class TestFrameProcessing:
 
     @pytest.mark.asyncio
     async def test_given_function_call_frame_when_processing_then_executes_tool_and_returns_result(
-        self, configured_tool_processor, function_call_frame, mock_session, mock_response
+        self, configured_tool_processor, function_call_frame, mock_session, 
+        mock_response
     ):
         """
         Given: A FunctionCallInProgressFrame is received
@@ -279,25 +305,26 @@ class TestFrameProcessing:
         # Given
         configured_tool_processor._session = mock_session
         mock_session.post.return_value.__aenter__.return_value = mock_response
-        
+
         # Setup mock for push_frame to capture calls
         configured_tool_processor.push_frame = AsyncMock()
-        
+
         # When
         await configured_tool_processor.process_frame(function_call_frame, FrameDirection.DOWNSTREAM)
-        
+
         # Then
         # Verify tool was called
         mock_session.post.assert_called_once()
-        
+
         # Verify result frame was pushed
         configured_tool_processor.push_frame.assert_called_once()
         pushed_frame = configured_tool_processor.push_frame.call_args[0][0]
-        
+
         assert isinstance(pushed_frame, FunctionCallResultFrame)
         assert pushed_frame.function_name == "test_tool"
         assert pushed_frame.tool_call_id == "call_123"
-        assert pushed_frame.result == {"success": True, "result": "test_result"}
+        expected_result = {"success": True, "result": "test_result"}
+        assert pushed_frame.result == expected_result
 
     @pytest.mark.asyncio
     async def test_given_non_function_call_frame_when_processing_then_passes_through(
@@ -311,12 +338,14 @@ class TestFrameProcessing:
         # Given
         text_frame = TextFrame("Hello, world!")
         tool_processor.push_frame = AsyncMock()
-        
+
         # When
         await tool_processor.process_frame(text_frame, FrameDirection.DOWNSTREAM)
-        
+
         # Then
-        tool_processor.push_frame.assert_called_once_with(text_frame, FrameDirection.DOWNSTREAM)
+        tool_processor.push_frame.assert_called_once_with(
+            text_frame, FrameDirection.DOWNSTREAM
+        )
 
     @pytest.mark.asyncio
     async def test_given_function_call_frame_when_tool_execution_fails_then_returns_error_result(
@@ -334,10 +363,10 @@ class TestFrameProcessing:
         mock_session.post.return_value.__aenter__.return_value = mock_response
         tool_processor._session = mock_session
         tool_processor.push_frame = AsyncMock()
-        
+
         # When
         await tool_processor.process_frame(function_call_frame, FrameDirection.DOWNSTREAM)
-        
+
         # Then
         pushed_frame = tool_processor.push_frame.call_args[0][0]
         assert isinstance(pushed_frame, FunctionCallResultFrame)
@@ -350,7 +379,8 @@ class TestIntegrationScenarios:
 
     @pytest.mark.asyncio
     async def test_given_multiple_tool_calls_when_processing_sequentially_then_handles_each_correctly(
-        self, configured_tool_processor, sample_tool_arguments, mock_session, mock_response
+        self, configured_tool_processor, sample_tool_arguments, mock_session, 
+        mock_response
     ):
         """
         Given: Multiple tool calls are processed sequentially
@@ -361,29 +391,31 @@ class TestIntegrationScenarios:
         configured_tool_processor._session = mock_session
         mock_session.post.return_value.__aenter__.return_value = mock_response
         configured_tool_processor.push_frame = AsyncMock()
-        
+
         frames = [
             FunctionCallInProgressFrame(tool_call_id="call_1", function_name="tool_1", arguments=sample_tool_arguments),
             FunctionCallInProgressFrame(tool_call_id="call_2", function_name="tool_2", arguments=sample_tool_arguments),
             FunctionCallInProgressFrame(tool_call_id="call_3", function_name="tool_3", arguments=sample_tool_arguments),
         ]
-        
+
         # When
         for frame in frames:
-            await configured_tool_processor.process_frame(frame, FrameDirection.DOWNSTREAM)
-        
+            await configured_tool_processor.process_frame(
+                frame, FrameDirection.DOWNSTREAM
+            )
+
         # Then
         assert mock_session.post.call_count == 3
         assert configured_tool_processor.push_frame.call_count == 3
-        
+
         # Verify each tool was called with correct name
         post_calls = mock_session.post.call_args_list
         expected_urls = [
             "https://test-central-api.com/api/nova_sonic/tools/tool_1",
-            "https://test-central-api.com/api/nova_sonic/tools/tool_2", 
+            "https://test-central-api.com/api/nova_sonic/tools/tool_2",
             "https://test-central-api.com/api/nova_sonic/tools/tool_3"
         ]
-        
+
         for i, call in enumerate(post_calls):
             assert call[0][0] == expected_urls[i]
 
@@ -398,20 +430,20 @@ class TestIntegrationScenarios:
         """
         # Given
         tool_processor._session = mock_session
-        
+
         # When
         await tool_processor.cleanup()
-        
+
         # Then
         assert tool_processor._session is None
-        
+
         # When reusing processor
         with patch('aiohttp.ClientSession') as mock_session_class:
             new_session = AsyncMock()
             mock_session_class.return_value = new_session
-            
+
             session = await tool_processor._get_session()
-            
+
             assert session == new_session
             assert tool_processor._session == new_session
 
@@ -432,10 +464,10 @@ class TestIntegrationScenarios:
         }
         tool_processor._session = mock_session
         mock_session.post.return_value.__aenter__.return_value = mock_response
-        
+
         # When
         await tool_processor._call_central_tool("special_tool", special_args)
-        
+
         # Then
         call_args = mock_session.post.call_args
         assert call_args[1]['json'] == special_args

@@ -111,6 +111,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 async def create_room_and_token() -> tuple[str, str]:
     """Helper function to create a Daily room and generate an access token.
 
@@ -143,7 +144,7 @@ async def start_agent(request: Request, bot: str = None, username: str = Depends
     Requires basic authentication.
 
     Args:
-        bot (str, optional): Bot implementation type (openai, gemini, nova, polly). 
+        bot (str, optional): Bot implementation type (openai, gemini, nova, polly).
                            If not provided, uses BOT_IMPLEMENTATION env var.
         username (str): Authenticated username (injected by dependency)
 
@@ -185,6 +186,7 @@ async def start_agent(request: Request, bot: str = None, username: str = Depends
 async def health_check():
     return {"status": "ok"}
 
+
 @app.post("/connect")
 async def rtvi_connect(request: Request, bot: str = None, username: str = Depends(verify_auth)) -> Dict[Any, Any]:
     """RTVI connect endpoint that creates a room and returns connection credentials.
@@ -194,7 +196,7 @@ async def rtvi_connect(request: Request, bot: str = None, username: str = Depend
     Optionally accepts system_prompt and tools in the JSON body, which are passed to the bot process as a single JSON argument.
 
     Args:
-        bot (str, optional): Bot implementation type (openai, gemini, nova, polly). 
+        bot (str, optional): Bot implementation type (openai, gemini, nova, polly).
                            If not provided, uses BOT_IMPLEMENTATION env var.
         username (str): Authenticated username (injected by dependency)
 
@@ -216,17 +218,17 @@ async def rtvi_connect(request: Request, bot: str = None, username: str = Depend
         body = {}
     system_prompt = body.get("system_prompt")
     tools = body.get("tools")
-    
+
     # Extract bearer token from Central's Authorization header
     auth_header = request.headers.get("authorization")
     bearer_token = None
     if auth_header and auth_header.startswith("Bearer "):
         bearer_token = auth_header.split(" ", 1)[1]
-    
+
     custom_payload = None
     if system_prompt is not None or tools is not None or bearer_token is not None:
         custom_payload = json.dumps({
-            "system_prompt": system_prompt, 
+            "system_prompt": system_prompt,
             "tools": tools,
             "bearer_token": bearer_token
         })
@@ -272,7 +274,7 @@ async def rtvi_connect_with_bot_type(request: Request, bot_type: str, username: 
     # Validate bot_type before proceeding
     if bot_type.lower() not in ["openai", "gemini", "nova", "polly"]:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"Invalid bot type: {bot_type}. Must be 'openai', 'gemini', 'nova', or 'polly'"
         )
     print(f"Creating room for RTVI connection with bot type: {bot_type}")
@@ -286,17 +288,17 @@ async def rtvi_connect_with_bot_type(request: Request, bot_type: str, username: 
         body = {}
     system_prompt = body.get("system_prompt")
     tools = body.get("tools")
-    
+
     # Extract bearer token from Central's Authorization header
     auth_header = request.headers.get("authorization")
     bearer_token = None
     if auth_header and auth_header.startswith("Bearer "):
         bearer_token = auth_header.split(" ", 1)[1]
-    
+
     custom_payload = None
     if system_prompt is not None or tools is not None or bearer_token is not None:
         custom_payload = json.dumps({
-            "system_prompt": system_prompt, 
+            "system_prompt": system_prompt,
             "tools": tools,
             "bearer_token": bearer_token
         })
@@ -366,7 +368,7 @@ async def start_agent_with_bot_type(request: Request, bot_type: str, username: s
     # Validate bot_type before proceeding
     if bot_type.lower() not in ["openai", "gemini", "nova", "polly"]:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"Invalid bot type: {bot_type}. Must be 'openai', 'gemini', 'nova', or 'polly'"
         )
 

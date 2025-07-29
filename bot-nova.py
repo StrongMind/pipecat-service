@@ -12,8 +12,8 @@ It includes:
 - Animated robot avatar
 - Speech-to-speech model
 
-The bot runs as part of a pipeline that processes audio/video frames and manages
-the conversation flow using Gemini's streaming capabilities.
+The bot runs as part of a pipeline that processes audio/video frames and
+manages the conversation flow using Gemini's streaming capabilities.
 """
 
 import asyncio
@@ -42,7 +42,9 @@ from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
-from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIProcessor
+from pipecat.processors.frameworks.rtvi import (
+    RTVIConfig, RTVIObserver, RTVIProcessor
+)
 from pipecat.services.aws_nova_sonic import AWSNovaSonicLLMService
 from pipecat.transports.services.daily import DailyParams, DailyTransport
 
@@ -62,7 +64,9 @@ for i in range(1, 26):
     # Get the filename without the extension to use as the dictionary key
     # Open the image and convert it to bytes
     with Image.open(full_path) as img:
-        sprites.append(OutputImageRawFrame(image=img.tobytes(), size=img.size, format=img.format))
+        sprites.append(OutputImageRawFrame(
+            image=img.tobytes(), size=img.size, format=img.format
+        ))
 
 # Create a smooth animation by adding reversed frames
 flipped = sprites[::-1]
@@ -70,7 +74,7 @@ sprites.extend(flipped)
 
 # Define static and animated states
 quiet_frame = sprites[0]  # Static frame for when bot is listening
-talking_frame = SpriteFrame(images=sprites)  # Animation sequence for when bot is talking
+talking_frame = SpriteFrame(images=sprites)  # Animation for talking bot
 
 
 class TalkingAnimation(FrameProcessor):
@@ -106,7 +110,6 @@ class TalkingAnimation(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
-
 async def main():
     """Main bot execution function.
 
@@ -120,7 +123,9 @@ async def main():
     """
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Nova Sonic Bot")
-    parser.add_argument("-c", "--custom", type=str, help="Custom payload JSON string")
+    parser.add_argument(
+        "-c", "--custom", type=str, help="Custom payload JSON string"
+    )
     args, unknown = parser.parse_known_args()
 
     # Parse custom payload if provided
@@ -136,9 +141,15 @@ async def main():
             logger.info(f"🔍 Extracted tools: {tools}")
             bearer_token = custom_data.get("bearer_token")
             if bearer_token:
-                logger.info(f"🔑 Pipecat: Using proxied bearer token from Central (length: {len(bearer_token)})")
+                logger.info(
+                    f"🔑 Pipecat: Using proxied bearer token from Central "
+                    f"(length: {len(bearer_token)})"
+                )
             else:
-                logger.warning("⚠️  Pipecat: No bearer token provided from Central - tool calls will fail")
+                logger.warning(
+                    "⚠️  Pipecat: No bearer token provided from Central - "
+                    "tool calls will fail"
+                )
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse custom payload: {e}")
     else:
@@ -147,7 +158,8 @@ async def main():
     async with aiohttp.ClientSession() as session:
         (room_url, token) = await configure(session)
 
-        # Set up Daily transport with specific audio/video parameters for Gemini
+        # Set up Daily transport with specific audio/video parameters
+        # for Gemini
         transport = DailyTransport(
             room_url,
             token,
@@ -158,7 +170,9 @@ async def main():
                 video_out_enabled=True,
                 video_out_width=1024,
                 video_out_height=576,
-                vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.5)),
+                vad_analyzer=SileroVADAnalyzer(
+                    params=VADParams(stop_secs=0.5)
+                ),
             ),
         )
 
@@ -170,7 +184,7 @@ async def main():
 
         system_instruction = system_prompt.rstrip()
         logger.info(f"🔍 Pipecat using provided system_prompt")
-        
+
         llm = AWSNovaSonicLLMService(
             secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
             access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -179,15 +193,19 @@ async def main():
             tools=tools
         )
 
-        # Create tool processor BEFORE callbacks (so callbacks can reference it)
+        # Create a tool processor BEFORE callbacks
+        # (so callbacks can reference it)
         tool_processor = ToolProcessor(auth_token=bearer_token)
 
         # Register dynamic function callback with LLM service
-        async def generic_tool_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
+        async def generic_tool_callback(
+            function_name, tool_call_id, arguments, llm, context, result_callback
+        ):
             """Generic callback for all tool calls from LLM."""
             logger.info(f"🔧 LLM callback: {function_name} with args: {arguments}")
-            
-            # Use ToolProcessor to execute the actual API call with the exact tool name from LLM
+
+            # Use ToolProcessor to execute the actual API call with the exact
+            # tool name from LLM
             result = await tool_processor._call_central_tool(function_name, arguments)
             await result_callback(result)
 
@@ -196,15 +214,20 @@ async def main():
             logger.info(f"🔧 Processing {len(tools)} tools for registration")
             for i, tool in enumerate(tools):
                 logger.info(f"🔧 Tool {i}: {tool}")
-                
+
                 # Extract tool name from tool definition or use string directly
                 if isinstance(tool, str):
                     tool_name = tool
                 elif isinstance(tool, dict) and 'toolSpec' in tool:
                     tool_name = tool['toolSpec']['name']
-                    logger.info(f"🔧 Extracted tool name '{tool_name}' from tool definition")
+                    logger.info(
+                        f"🔧 Extracted tool name '{tool_name}' from tool definition"
+                    )
                 else:
-                    raise ValueError(f"Tool must be a string or tool definition dict with 'toolSpec', got {type(tool)}: {tool}")
+                    raise ValueError(
+                        f"Tool must be a string or tool definition dict with "
+                        f"'toolSpec', got {type(tool)}: {tool}"
+                    )
 
                 llm.register_function(tool_name, generic_tool_callback)
                 logger.info(f"🔧 ✅ Registered tool callback: {tool_name}")
@@ -216,7 +239,8 @@ async def main():
                 "Please provide a list of tools in the bot configuration."
             )
 
-        # AWS Nova Sonic uses both registered callbacks AND frame-based tool processing via ToolProcessor
+        # AWS Nova Sonic uses both registered callbacks AND frame-based tool
+        # processing via ToolProcessor
 
         messages = [
             {
@@ -266,17 +290,25 @@ async def main():
         async def on_client_ready(rtvi):
             await rtvi.set_bot_ready()
             # Kick off the conversation
-            await task.queue_frames([context_aggregator.user().get_context_frame()])
+            await task.queue_frames(
+                [context_aggregator.user().get_context_frame()]
+            )
 
         @transport.event_handler("on_first_participant_joined")
         async def on_first_participant_joined(transport, participant):
             print(f"Participant joined: {participant}")
-            await transport.capture_participant_transcription(participant["id"])
+            await transport.capture_participant_transcription(
+                participant["id"]
+            )
             # Kick off the conversation.
-            await task.queue_frames([context_aggregator.user().get_context_frame()])
-            # HACK: for now, we need this special way of triggering the first assistant response in AWS
-            # Nova Sonic. Note that this trigger requires a special corresponding bit of text in the
-            # system instruction. In the future, simply queueing the context frame should be sufficient.
+            await task.queue_frames(
+                [context_aggregator.user().get_context_frame()]
+            )
+            # HACK: for now, we need this special way of triggering the first
+            # assistant response in AWS Nova Sonic. Note that this trigger
+            # requires a special corresponding bit of text in the system
+            # instruction. In the future, simply queueing the context frame
+            # should be sufficient.
             await llm.trigger_assistant_response()
 
         @transport.event_handler("on_participant_left")

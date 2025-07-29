@@ -130,4 +130,4 @@ async def verify_auth(request: Request) -> str:
             payload = await verify_jwt_token(credentials.credentials)
             return payload.get("sub", payload.get("email", "unknown"))
     credentials = await security(request)
-    return verify_credentials(credentials) 
+    return verify_credentials(credentials)
