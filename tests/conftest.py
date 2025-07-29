@@ -48,15 +48,6 @@ def sample_tool_arguments():
     }
 
 
-@pytest.fixture
-def sample_learning_context():
-    """Sample learning context for testing."""
-    return {
-        "course_id": "course_123",
-        "component_id": "comp_456",
-        "user_id": "user_789"
-    }
-
 
 @pytest.fixture
 def function_call_frame(sample_tool_arguments):
@@ -75,10 +66,9 @@ def tool_processor():
 
 
 @pytest.fixture
-def configured_tool_processor(sample_learning_context):
+def configured_tool_processor():
     """Fully configured ToolProcessor instance for testing."""
     return ToolProcessor(
         central_base_url="https://test-central-api.com",
-        auth_token="test_bearer_token",
-        learning_context=sample_learning_context
+        auth_token="test_bearer_token"
     )

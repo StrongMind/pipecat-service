@@ -34,7 +34,6 @@ class TestToolProcessorInitialization:
         assert processor._central_base_url == "http://localhost:3001"
         assert processor._auth_token is None
         assert processor._session is None
-        assert processor._learning_context == {}
 
     def test_given_custom_parameters_when_initializing_then_uses_provided_values(self):
         """
@@ -45,19 +44,16 @@ class TestToolProcessorInitialization:
         # Given
         base_url = "https://custom-api.com"
         auth_token = "custom_token"
-        learning_context = {"course_id": "123"}
         
         # When
         processor = ToolProcessor(
             central_base_url=base_url,
-            auth_token=auth_token,
-            learning_context=learning_context
+            auth_token=auth_token
         )
         
         # Then
         assert processor._central_base_url == base_url
         assert processor._auth_token == auth_token
-        assert processor._learning_context == learning_context
 
     @patch.dict(os.environ, {'CENTRAL_API_URL': 'https://env-api.com'})
     def test_given_environment_variable_when_no_base_url_provided_then_uses_env_value(self):
@@ -199,32 +195,7 @@ class TestCentralToolCalling:
         call_args = mock_session.post.call_args
         assert call_args[1]['headers']['Authorization'] == "Bearer already_prefixed_token"
 
-    @pytest.mark.asyncio
-    async def test_given_learning_component_tool_when_calling_central_tool_then_adds_learning_context(
-        self, configured_tool_processor, mock_session, mock_response
-    ):
-        """
-        Given: A learning_component tool call with learning context
-        When: _call_central_tool is called
-        Then: Learning context should be added to arguments
-        """
-        # Given
-        tool_name = "learning_component"
-        tool_arguments = {"existing_param": "value"}
-        configured_tool_processor._session = mock_session
-        mock_session.post.return_value.__aenter__.return_value = mock_response
-        
-        # When
-        await configured_tool_processor._call_central_tool(tool_name, tool_arguments)
-        
-        # Then
-        expected_args = {
-            "existing_param": "value",
-            "course_id": "course_123",
-            "component_id": "comp_456"
-        }
-        call_args = mock_session.post.call_args
-        assert call_args[1]['json'] == expected_args
+
 
     @pytest.mark.asyncio
     async def test_given_api_error_response_when_calling_central_tool_then_returns_error_result(

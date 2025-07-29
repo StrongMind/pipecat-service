@@ -126,14 +126,12 @@ async def main():
     # Parse custom payload if provided
     system_prompt = None
     tools = None
-    learning_context = {}
     bearer_token = None
     if args.custom:
         try:
             custom_data = json.loads(args.custom)
             system_prompt = custom_data.get("system_prompt")
             tools = custom_data.get("tools")
-            learning_context = custom_data.get("learning_context", {})
             bearer_token = custom_data.get("bearer_token")
             if bearer_token:
                 logger.info(f"🔑 Pipecat: Using proxied bearer token from Central (length: {len(bearer_token)})")
@@ -180,40 +178,25 @@ async def main():
         )
 
         # Create tool processor BEFORE callbacks (so callbacks can reference it)
-        tool_processor = ToolProcessor(auth_token=bearer_token, learning_context=learning_context)
+        tool_processor = ToolProcessor(auth_token=bearer_token)
 
-        # Register function callbacks with LLM service (inherited from LLMService)
-        async def learning_component_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
-            """Callback for learning_component tool calls from LLM."""
+        # Register dynamic function callback with LLM service
+        async def generic_tool_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
+            """Generic callback for all tool calls from LLM."""
             logger.info(f"🔧 LLM callback: {function_name} with args: {arguments}")
-            # Inject learning context if available
-            if learning_context and 'course_id' in learning_context:
-                arguments['course_id'] = learning_context['course_id']
-            if learning_context and 'component_id' in learning_context:
-                arguments['component_id'] = learning_context['component_id']
             
-            # Use ToolProcessor to execute the actual API call
-            result = await tool_processor._call_central_tool('learning_component', arguments)
+            # Use ToolProcessor to execute the actual API call with the exact tool name from LLM
+            result = await tool_processor._call_central_tool(function_name, arguments)
             await result_callback(result)
 
-        async def whiteboard_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
-            """Callback for whiteboard tool calls from LLM."""
-            logger.info(f"🔧 LLM callback: {function_name} with args: {arguments}")
-            result = await tool_processor._call_central_tool('whiteboard', arguments)
-            await result_callback(result)
-
-        async def video_callback(function_name, tool_call_id, arguments, llm, context, result_callback):
-            """Callback for video tool calls from LLM."""
-            logger.info(f"🔧 LLM callback: {function_name} with args: {arguments}")
-            result = await tool_processor._call_central_tool('video', arguments)
-            await result_callback(result)
-
-        # Register the callbacks with the LLM service using correct method
+        # Register the generic callback for all available tools
         if tools:
-            llm.register_function("learning_component", learning_component_callback)
-            llm.register_function("whiteboard", whiteboard_callback)
-            llm.register_function("video", video_callback)
-            logger.info("🔧 Tool callbacks registered with LLM service")
+            for tool in tools:
+                tool_name = tool.get('function', {}).get('name')
+                if tool_name:
+                    llm.register_function(tool_name, generic_tool_callback)
+                    logger.info(f"🔧 Registered tool callback: {tool_name}")
+            logger.info("🔧 All tool callbacks registered with LLM service")
 
         # AWS Nova Sonic uses both registered callbacks AND frame-based tool processing via ToolProcessor
 

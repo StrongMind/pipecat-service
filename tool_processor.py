@@ -24,12 +24,11 @@ class ToolProcessor(FrameProcessor):
     back to the conversation flow.
     """
 
-    def __init__(self, central_base_url: str = None, auth_token: str = None, learning_context: dict = None):
+    def __init__(self, central_base_url: str = None, auth_token: str = None):
         super().__init__()
         self._central_base_url = central_base_url or os.getenv('CENTRAL_API_URL', 'http://localhost:3001')
         self._auth_token = auth_token
         self._session = None
-        self._learning_context = learning_context or {}
 
     async def _get_session(self):
         """Get or create HTTP session."""
@@ -43,8 +42,8 @@ class ToolProcessor(FrameProcessor):
         Uses the RESTful endpoint POST /api/nova_sonic/tools/:tool_name
         
         Args:
-            tool_name: Name of the tool to execute (learning_component, show_whiteboard, show_video)
-            tool_arguments: Arguments for the tool
+            tool_name: Name of the tool to execute (dynamically provided by LLM)
+            tool_arguments: Arguments for the tool (dynamically provided by LLM)
             
         Returns:
             Tool execution result from Central
@@ -64,12 +63,6 @@ class ToolProcessor(FrameProcessor):
         else:
             logger.error("No bearer token provided from Central - tool calls will fail")
         
-        if tool_name == 'learning_component':
-            if 'course_id' in self._learning_context:
-                tool_arguments['course_id'] = self._learning_context['course_id']
-            if 'component_id' in self._learning_context:
-                tool_arguments['component_id'] = self._learning_context['component_id']
-
         try:
             logger.info(f"Calling Central tool: {tool_name} with args: {tool_arguments}")
             async with session.post(url, json=tool_arguments, headers=headers) as response:
