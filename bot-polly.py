@@ -86,7 +86,13 @@ async def main(room_url, token):
         messages = [
             {
                 "role": "system",
-                "content": "You are a elementary school teacher named Lexi in a WebRTC call. Your goal is to demonstrate your capabilities in a succinct way. Your output will be converted to audio so don't include special characters in your answers. Respond to what the user said in a creative and helpful way.",
+                "content": (
+                    "You are a elementary school teacher named Lexi in a WebRTC "
+                    "call. Your goal is to demonstrate your capabilities in a "
+                    "succinct way. Your output will be converted to audio so "
+                    "don't include special characters in your answers. Respond "
+                    "to what the user said in a creative and helpful way."
+                ),
             },
         ]
 
@@ -116,8 +122,12 @@ async def main(room_url, token):
 
         @transport.event_handler("on_first_participant_joined")
         async def on_first_participant_joined(transport, participant):
-            await transport.capture_participant_transcription(participant["id"])
-            # await task.queue_frames([context_aggregator.user().get_context_frame()])
+            await transport.capture_participant_transcription(
+                participant["id"]
+            )
+            # await task.queue_frames(
+            #     [context_aggregator.user().get_context_frame()]
+            # )
 
         @transport.event_handler("on_participant_left")
         async def on_participant_left(transport, participant, reason):

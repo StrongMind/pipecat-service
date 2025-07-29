@@ -6,15 +6,15 @@
 
 """OpenAI Bot Implementation.
 
-This module implements a chatbot using OpenAI's GPT-4 model for natural language
-processing. It includes:
+This module implements a chatbot using OpenAI's GPT-4 model for natural
+language processing. It includes:
 - Real-time audio/video interaction through Daily
 - Animated robot avatar
 - Text-to-speech using ElevenLabs
 - Support for both English and Spanish
 
-The bot runs as part of a pipeline that processes audio/video frames and manages
-the conversation flow.
+The bot runs as part of a pipeline that processes audio/video frames and
+manages the conversation flow.
 """
 
 import asyncio
@@ -40,7 +40,9 @@ from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
-from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIProcessor
+from pipecat.processors.frameworks.rtvi import (
+    RTVIConfig, RTVIObserver, RTVIProcessor
+)
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.transports.services.daily import DailyParams, DailyTransport
@@ -59,7 +61,9 @@ for i in range(1, 26):
     # Get the filename without the extension to use as the dictionary key
     # Open the image and convert it to bytes
     with Image.open(full_path) as img:
-        sprites.append(OutputImageRawFrame(image=img.tobytes(), size=img.size, format=img.format))
+        sprites.append(OutputImageRawFrame(
+            image=img.tobytes(), size=img.size, format=img.format
+        ))
 
 # Create a smooth animation by adding reversed frames
 flipped = sprites[::-1]
@@ -67,7 +71,7 @@ sprites.extend(flipped)
 
 # Define static and animated states
 quiet_frame = sprites[0]  # Static frame for when bot is listening
-talking_frame = SpriteFrame(images=sprites)  # Animation sequence for when bot is talking
+talking_frame = SpriteFrame(images=sprites)  # Animation for talking bot
 
 
 class TalkingAnimation(FrameProcessor):
@@ -163,16 +167,32 @@ async def main():
                 #
                 # English
                 #
-                "content": "You are Lexi, an elementary school teacher. Your goal is to demonstrate your capabilities in a succinct way. Your output will be converted to audio so don't include special characters in your answers. Respond to what the user said in a creative and helpful way, but keep your responses brief. Start by introducing yourself.",
+                "content": (
+                    "You are Lexi, an elementary school teacher. Your goal is "
+                    "to demonstrate your capabilities in a succinct way. Your "
+                    "output will be converted to audio so don't include "
+                    "special characters in your answers. Respond to what the "
+                    "user said in a creative and helpful way, but keep your "
+                    "responses brief. Start by introducing yourself."
+                ),
                 #
                 # Spanish
                 #
-                # "content": "Eres Chatbot, un amigable y útil robot. Tu objetivo es demostrar tus capacidades de una manera breve. Tus respuestas se convertiran a audio así que nunca no debes incluir caracteres especiales. Contesta a lo que el usuario pregunte de una manera creativa, útil y breve. Empieza por presentarte a ti mismo.",
+                # "content": (
+                #     "Eres Chatbot, un amigable y útil robot. Tu objetivo es "
+                #     "demostrar tus capacidades de una manera breve. Tus "
+                #     "respuestas se convertiran a audio así que nunca no "
+                #     "debes "
+                #     "incluir caracteres especiales. Contesta a lo que el "
+                #     "usuario pregunte de una manera creativa, útil y breve. "
+                #     "Empieza por presentarte a ti mismo."
+                # ),
             },
         ]
 
         # Set up conversation context and management
-        # The context_aggregator will automatically collect conversation context
+        # The context_aggregator will automatically collect conversation
+        # context
         context = OpenAILLMContext(messages)
         context_aggregator = llm.create_context_aggregator(context)
 
@@ -210,12 +230,16 @@ async def main():
         async def on_client_ready(rtvi):
             await rtvi.set_bot_ready()
             # Kick off the conversation
-            await task.queue_frames([context_aggregator.user().get_context_frame()])
+            await task.queue_frames(
+                [context_aggregator.user().get_context_frame()]
+            )
 
         @transport.event_handler("on_first_participant_joined")
         async def on_first_participant_joined(transport, participant):
             print(f"Participant joined: {participant}")
-            await transport.capture_participant_transcription(participant["id"])
+            await transport.capture_participant_transcription(
+                participant["id"]
+            )
 
         @transport.event_handler("on_participant_left")
         async def on_participant_left(transport, participant, reason):
