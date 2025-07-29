@@ -284,13 +284,8 @@ async def main():
             print(f"Participant left: {participant}")
             await task.cancel()
 
-        # Run the pipeline
-        try:
-            runner = PipelineRunner()
-            await runner.run(task)
-        finally:
-            # No cleanup needed - using direct function callbacks
-            pass
+        # Run the pipeline task
+        await task.run()
 
 
 if __name__ == "__main__":
