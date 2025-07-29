@@ -19,7 +19,7 @@ COPY ./requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
 
 # Copy all necessary Python files
-COPY ./server.py ./runner.py ./waiting_server.py ./bot-nova.py ./bot-openai.py ./bot-polly.py ./auth.py /app/
+COPY ./server.py ./runner.py ./waiting_server.py ./bot-nova.py ./bot-openai.py ./bot-polly.py ./auth.py ./tool_processor.py /app/
 
 # Copy assets directory (needed for robot animations)
 COPY ./assets /app/assets
