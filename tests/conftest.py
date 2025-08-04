@@ -41,11 +41,7 @@ def mock_response():
 @pytest.fixture
 def sample_tool_arguments():
     """Sample tool arguments for testing."""
-    return {
-        "param1": "value1",
-        "param2": {"nested": "value2"},
-        "param3": [1, 2, 3]
-    }
+    return {"param1": "value1", "param2": {"nested": "value2"}, "param3": [1, 2, 3]}
 
 
 @pytest.fixture
@@ -54,7 +50,7 @@ def function_call_frame(sample_tool_arguments):
     return FunctionCallInProgressFrame(
         tool_call_id="call_123",
         function_name="test_tool",
-        arguments=sample_tool_arguments
+        arguments=sample_tool_arguments,
     )
 
 
@@ -68,6 +64,5 @@ def tool_processor():
 def configured_tool_processor():
     """Fully configured ToolProcessor instance for testing."""
     return ToolProcessor(
-        central_base_url="https://test-central-api.com",
-        auth_token="test_bearer_token"
+        central_base_url="https://test-central-api.com", auth_token="test_bearer_token"
     )

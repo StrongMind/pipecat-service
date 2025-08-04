@@ -42,9 +42,7 @@ from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
-from pipecat.processors.frameworks.rtvi import (
-    RTVIConfig, RTVIObserver, RTVIProcessor
-)
+from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIProcessor
 from pipecat.services.aws_nova_sonic import AWSNovaSonicLLMService
 from pipecat.transports.services.daily import DailyParams, DailyTransport
 
@@ -64,9 +62,9 @@ for i in range(1, 26):
     # Get the filename without the extension to use as the dictionary key
     # Open the image and convert it to bytes
     with Image.open(full_path) as img:
-        sprites.append(OutputImageRawFrame(
-            image=img.tobytes(), size=img.size, format=img.format
-        ))
+        sprites.append(
+            OutputImageRawFrame(image=img.tobytes(), size=img.size, format=img.format)
+        )
 
 # Create a smooth animation by adding reversed frames
 flipped = sprites[::-1]
@@ -123,9 +121,7 @@ async def main():
     """
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Nova Sonic Bot")
-    parser.add_argument(
-        "-c", "--custom", type=str, help="Custom payload JSON string"
-    )
+    parser.add_argument("-c", "--custom", type=str, help="Custom payload JSON string")
     args, unknown = parser.parse_known_args()
 
     # Parse custom payload if provided
@@ -170,9 +166,7 @@ async def main():
                 video_out_enabled=True,
                 video_out_width=1024,
                 video_out_height=576,
-                vad_analyzer=SileroVADAnalyzer(
-                    params=VADParams(stop_secs=0.5)
-                ),
+                vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.5)),
             ),
         )
 
@@ -190,7 +184,7 @@ async def main():
             access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
             region="us-east-1",
             voice_id="tiffany",  # matthew, tiffany, amy
-            tools=tools
+            tools=tools,
         )
 
         # Create a tool processor BEFORE callbacks
@@ -218,8 +212,8 @@ async def main():
                 # Extract tool name from tool definition or use string directly
                 if isinstance(tool, str):
                     tool_name = tool
-                elif isinstance(tool, dict) and 'toolSpec' in tool:
-                    tool_name = tool['toolSpec']['name']
+                elif isinstance(tool, dict) and "toolSpec" in tool:
+                    tool_name = tool["toolSpec"]["name"]
                     logger.info(
                         f"🔧 Extracted tool name '{tool_name}' from tool definition"
                     )
@@ -290,20 +284,14 @@ async def main():
         async def on_client_ready(rtvi):
             await rtvi.set_bot_ready()
             # Kick off the conversation
-            await task.queue_frames(
-                [context_aggregator.user().get_context_frame()]
-            )
+            await task.queue_frames([context_aggregator.user().get_context_frame()])
 
         @transport.event_handler("on_first_participant_joined")
         async def on_first_participant_joined(transport, participant):
             print(f"Participant joined: {participant}")
-            await transport.capture_participant_transcription(
-                participant["id"]
-            )
+            await transport.capture_participant_transcription(participant["id"])
             # Kick off the conversation.
-            await task.queue_frames(
-                [context_aggregator.user().get_context_frame()]
-            )
+            await task.queue_frames([context_aggregator.user().get_context_frame()])
             # HACK: for now, we need this special way of triggering the first
             # assistant response in AWS Nova Sonic. Note that this trigger
             # requires a special corresponding bit of text in the system

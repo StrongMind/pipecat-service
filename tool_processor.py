@@ -26,7 +26,9 @@ class ToolProcessor(FrameProcessor):
 
     def __init__(self, central_base_url: str = None, auth_token: str = None):
         super().__init__()
-        self._central_base_url = central_base_url or os.getenv('CENTRAL_API_URL', 'http://localhost:3001')
+        self._central_base_url = central_base_url or os.getenv(
+            "CENTRAL_API_URL", "http://localhost:3001"
+        )
         self._auth_token = auth_token
         self._session = None
 
@@ -39,11 +41,14 @@ class ToolProcessor(FrameProcessor):
     async def _call_central_tool(self, tool_name: str, tool_arguments: dict) -> dict:
         """Call Central unified API to execute a tool.
 
-        Uses the RESTful endpoint POST /api/nova_sonic/tools/:tool_name
+        Uses the RESTful endpoint
+        POST /api/nova_sonic/tools/:tool_name
 
         Args:
-            tool_name: Name of the tool to execute (dynamically provided by LLM)
-            tool_arguments: Arguments for the tool (dynamically provided by LLM)
+            tool_name: Name of the tool to execute
+                (dynamically provided by LLM)
+            tool_arguments: Arguments for the tool
+                (dynamically provided by LLM)
 
         Returns:
             Tool execution result from Central
@@ -53,26 +58,33 @@ class ToolProcessor(FrameProcessor):
         # Use unified RESTful endpoint for all tools
         endpoint = f"/api/nova_sonic/tools/{tool_name}"
         url = f"{self._central_base_url}{endpoint}"
-        headers = {'Content-Type': 'application/json'}
+        headers = {"Content-Type": "application/json"}
         if self._auth_token:
-            # Always send as Bearer token (works for both user tokens and API keys)
-            if not self._auth_token.startswith('Bearer '):
-                headers['Authorization'] = f'Bearer {self._auth_token}'
+            # Always send as Bearer token
+            # (works for both user tokens and API keys)
+            if not self._auth_token.startswith("Bearer "):
+                headers["Authorization"] = f"Bearer {self._auth_token}"
             else:
-                headers['Authorization'] = self._auth_token
+                headers["Authorization"] = self._auth_token
         else:
             logger.error("No bearer token provided from Central - tool calls will fail")
 
         try:
-            logger.info(f"Calling Central tool: {tool_name} with args: {tool_arguments}")
-            async with session.post(url, json=tool_arguments, headers=headers) as response:
+            logger.info(
+                f"Calling Central tool: {tool_name} with args: {tool_arguments}"
+            )
+            async with session.post(
+                url, json=tool_arguments, headers=headers
+            ) as response:
                 if response.status == 200:
                     result = await response.json()
                     logger.info(f"Tool {tool_name} completed successfully")
                     return result
                 else:
                     error_text = await response.text()
-                    logger.error(f"Tool {tool_name} failed with status {response.status}: {error_text}")
+                    logger.error(
+                        f"Tool {tool_name} failed with status {response.status}: {error_text}"
+                    )
                     return {"error": f"Tool execution failed: {error_text}"}
 
         except Exception as e:
@@ -90,20 +102,20 @@ class ToolProcessor(FrameProcessor):
 
         # Intercept tool call frames from the LLM
         if isinstance(frame, FunctionCallInProgressFrame):
-            logger.info(f"Tool call intercepted: {frame.tool_call_id} - {frame.function_name}")
+            logger.info(
+                f"Tool call intercepted: {frame.tool_call_id} - "
+                f"{frame.function_name}"
+            )
 
             # Execute the tool via Central API
-            result = await self._call_central_tool(
-                frame.function_name,
-                frame.arguments
-            )
+            result = await self._call_central_tool(frame.function_name, frame.arguments)
 
             # Create result frame to send back to LLM
             result_frame = FunctionCallResultFrame(
                 function_name=frame.function_name,
                 tool_call_id=frame.tool_call_id,
                 arguments=frame.arguments,
-                result=result
+                result=result,
             )
 
             logger.info(f"Sending tool result back to LLM: {frame.tool_call_id}")

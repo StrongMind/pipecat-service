@@ -33,7 +33,10 @@ if LOCAL_RUN:
     try:
         from local_runner import configure
     except ImportError:
-        logger.error("Could not import local_runner module. Local development mode may not work.")
+        logger.error(
+            "Could not import local_runner module. "
+            "Local development mode may not work."
+        )
 
 
 async def main(transport: DailyTransport):
@@ -54,8 +57,10 @@ async def main(transport: DailyTransport):
         # tools=tools
     )
 
-    system_instruction = ("You are a elementary school teacher named Lexi. "
-                          f"{AWSNovaSonicLLMService.AWAIT_TRIGGER_ASSISTANT_RESPONSE_INSTRUCTION}")
+    system_instruction = (
+        "You are a elementary school teacher named Lexi. "
+        f"{AWSNovaSonicLLMService.AWAIT_TRIGGER_ASSISTANT_RESPONSE_INSTRUCTION}"
+    )
     messages = [
         {
             "role": "system",
@@ -93,9 +98,11 @@ async def main(transport: DailyTransport):
         await transport.capture_participant_transcription(participant["id"])
         # Kick off the conversation.
         await task.queue_frames([context_aggregator.user().get_context_frame()])
-        # HACK: for now, we need this special way of triggering the first assistant response in AWS
-        # Nova Sonic. Note that this trigger requires a special corresponding bit of text in the
-        # system instruction. In the future, simply queueing the context frame should be sufficient.
+        # HACK: for now, we need this special way of triggering the first
+        # assistant response in AWS Nova Sonic. Note that this trigger
+        # requires a special corresponding bit of text in the system
+        # instruction. In the future, simply queueing the context frame
+        # should be sufficient.
         await llm.trigger_assistant_response()
 
     @transport.event_handler("on_participant_left")

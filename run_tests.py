@@ -34,7 +34,9 @@ def install_dependencies():
     return run_command(cmd, "Installing test dependencies")
 
 
-def run_tests(coverage=True, verbose=False, parallel=False, html_report=False, filter_expr=None):
+def run_tests(
+    coverage=True, verbose=False, parallel=False, html_report=False, filter_expr=None
+):
     """Run the test suite with specified options."""
     cmd = [sys.executable, "-m", "pytest"]
 
@@ -68,8 +70,11 @@ def run_linting():
 
     # Check if flake8 is available
     try:
-        subprocess.run([sys.executable, "-m", "flake8", "--version"],
-                       capture_output=True, check=True)
+        subprocess.run(
+            [sys.executable, "-m", "flake8", "--version"],
+            capture_output=True,
+            check=True,
+        )
         cmd = [sys.executable, "-m", "flake8", "tool_processor.py", "tests/"]
         if not run_command(cmd, "Code style check (flake8)"):
             return False
@@ -78,8 +83,9 @@ def run_linting():
 
     # Check if mypy is available
     try:
-        subprocess.run([sys.executable, "-m", "mypy", "--version"],
-                       capture_output=True, check=True)
+        subprocess.run(
+            [sys.executable, "-m", "mypy", "--version"], capture_output=True, check=True
+        )
         cmd = [sys.executable, "-m", "mypy", "tool_processor.py"]
         if not run_command(cmd, "Type check (mypy)"):
             return False
@@ -105,25 +111,29 @@ Examples:
   python run_tests.py --install-deps      # Install test dependencies
   python run_tests.py --lint              # Run code quality checks
   python run_tests.py --all               # Run everything (deps, lint, tests)
-        """
+        """,
     )
 
-    parser.add_argument("--install-deps", action="store_true",
-                        help="Install test dependencies")
-    parser.add_argument("--no-coverage", action="store_true",
-                        help="Skip coverage reporting")
-    parser.add_argument("--verbose", "-v", action="store_true",
-                        help="Verbose output")
-    parser.add_argument("--parallel", "-n", action="store_true",
-                        help="Run tests in parallel")
-    parser.add_argument("--html", action="store_true",
-                        help="Generate HTML coverage report")
-    parser.add_argument("--filter", "-k",
-                        help="Filter tests by expression")
-    parser.add_argument("--lint", action="store_true",
-                        help="Run code quality checks")
-    parser.add_argument("--all", action="store_true",
-                        help="Run everything: install deps, lint, and tests")
+    parser.add_argument(
+        "--install-deps", action="store_true", help="Install test dependencies"
+    )
+    parser.add_argument(
+        "--no-coverage", action="store_true", help="Skip coverage reporting"
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "--parallel", "-n", action="store_true", help="Run tests in parallel"
+    )
+    parser.add_argument(
+        "--html", action="store_true", help="Generate HTML coverage report"
+    )
+    parser.add_argument("--filter", "-k", help="Filter tests by expression")
+    parser.add_argument("--lint", action="store_true", help="Run code quality checks")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Run everything: install deps, lint, and tests",
+    )
 
     args = parser.parse_args()
 
@@ -153,7 +163,7 @@ Examples:
             verbose=args.verbose,
             parallel=args.parallel,
             html_report=args.html,
-            filter_expr=args.filter
+            filter_expr=args.filter,
         ):
             success = False
 

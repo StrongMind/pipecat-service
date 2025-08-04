@@ -37,7 +37,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from pipecat.transports.services.helpers.daily_rest import DailyRESTHelper, DailyRoomParams
+from pipecat.transports.services.helpers.daily_rest import (
+    DailyRESTHelper,
+    DailyRoomParams,
+)
 from auth import verify_auth
 
 # Load environment variables from .env file
@@ -131,13 +134,17 @@ async def create_room_and_token() -> tuple[str, str]:
 
         token = await daily_helpers["rest"].get_token(room_url)
         if not token:
-            raise HTTPException(status_code=500, detail=f"Failed to get token for room: {room_url}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to get token for room: {room_url}"
+            )
 
     return room_url, token
 
 
 @app.get("/")
-async def start_agent(request: Request, bot: str = None, username: str = Depends(verify_auth)):
+async def start_agent(
+    request: Request, bot: str = None, username: str = Depends(verify_auth)
+):
     """Endpoint for direct browser access to the bot.
 
     Creates a room, starts a bot instance, and redirects to the Daily room URL.
@@ -161,10 +168,14 @@ async def start_agent(request: Request, bot: str = None, username: str = Depends
 
     # Check if there is already an existing process running in this room
     num_bots_in_room = sum(
-        1 for proc in bot_procs.values() if proc[1] == room_url and proc[0].poll() is None
+        1
+        for proc in bot_procs.values()
+        if proc[1] == room_url and proc[0].poll() is None
     )
     if num_bots_in_room >= MAX_BOTS_PER_ROOM:
-        raise HTTPException(status_code=500, detail=f"Max bot limit reached for room: {room_url}")
+        raise HTTPException(
+            status_code=500, detail=f"Max bot limit reached for room: {room_url}"
+        )
 
     # Spawn a new bot process
     try:
@@ -188,7 +199,9 @@ async def health_check():
 
 
 @app.post("/connect")
-async def rtvi_connect(request: Request, bot: str = None, username: str = Depends(verify_auth)) -> Dict[Any, Any]:
+async def rtvi_connect(
+    request: Request, bot: str = None, username: str = Depends(verify_auth)
+) -> Dict[Any, Any]:
     """RTVI connect endpoint that creates a room and returns connection credentials.
 
     This endpoint is called by RTVI clients to establish a connection.
@@ -227,11 +240,13 @@ async def rtvi_connect(request: Request, bot: str = None, username: str = Depend
 
     custom_payload = None
     if system_prompt is not None or tools is not None or bearer_token is not None:
-        custom_payload = json.dumps({
-            "system_prompt": system_prompt,
-            "tools": tools,
-            "bearer_token": bearer_token
-        })
+        custom_payload = json.dumps(
+            {
+                "system_prompt": system_prompt,
+                "tools": tools,
+                "bearer_token": bearer_token,
+            }
+        )
 
     # Start the bot process
     try:
@@ -254,7 +269,9 @@ async def rtvi_connect(request: Request, bot: str = None, username: str = Depend
 
 
 @app.post("/connect/{bot_type}")
-async def rtvi_connect_with_bot_type(request: Request, bot_type: str, username: str = Depends(verify_auth)) -> Dict[Any, Any]:
+async def rtvi_connect_with_bot_type(
+    request: Request, bot_type: str, username: str = Depends(verify_auth)
+) -> Dict[Any, Any]:
     """RTVI connect endpoint with specified bot type that creates a room and returns connection credentials.
 
     This endpoint is called by RTVI clients to establish a connection with a specific bot type.
@@ -275,7 +292,7 @@ async def rtvi_connect_with_bot_type(request: Request, bot_type: str, username: 
     if bot_type.lower() not in ["openai", "gemini", "nova", "polly"]:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid bot type: {bot_type}. Must be 'openai', 'gemini', 'nova', or 'polly'"
+            detail=f"Invalid bot type: {bot_type}. Must be 'openai', 'gemini', 'nova', or 'polly'",
         )
     print(f"Creating room for RTVI connection with bot type: {bot_type}")
     room_url, token = await create_room_and_token()
@@ -297,11 +314,13 @@ async def rtvi_connect_with_bot_type(request: Request, bot_type: str, username: 
 
     custom_payload = None
     if system_prompt is not None or tools is not None or bearer_token is not None:
-        custom_payload = json.dumps({
-            "system_prompt": system_prompt,
-            "tools": tools,
-            "bearer_token": bearer_token
-        })
+        custom_payload = json.dumps(
+            {
+                "system_prompt": system_prompt,
+                "tools": tools,
+                "bearer_token": bearer_token,
+            }
+        )
 
     # Start the bot process
     try:
@@ -341,7 +360,9 @@ def get_status(pid: int):
 
     # If the subprocess doesn't exist, return an error
     if not proc:
-        raise HTTPException(status_code=404, detail=f"Bot with process id: {pid} not found")
+        raise HTTPException(
+            status_code=404, detail=f"Bot with process id: {pid} not found"
+        )
 
     # Check the status of the subprocess
     status = "running" if proc[0].poll() is None else "finished"
@@ -349,7 +370,9 @@ def get_status(pid: int):
 
 
 @app.get("/{bot_type}")
-async def start_agent_with_bot_type(request: Request, bot_type: str, username: str = Depends(verify_auth)):
+async def start_agent_with_bot_type(
+    request: Request, bot_type: str, username: str = Depends(verify_auth)
+):
     """Endpoint for direct browser access to the bot with specified bot type.
 
     Creates a room, starts a bot instance of the specified type, and redirects to the Daily room URL.
@@ -369,7 +392,7 @@ async def start_agent_with_bot_type(request: Request, bot_type: str, username: s
     if bot_type.lower() not in ["openai", "gemini", "nova", "polly"]:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid bot type: {bot_type}. Must be 'openai', 'gemini', 'nova', or 'polly'"
+            detail=f"Invalid bot type: {bot_type}. Must be 'openai', 'gemini', 'nova', or 'polly'",
         )
 
     print(f"Creating room with bot type: {bot_type} for user: {username}")
@@ -378,10 +401,14 @@ async def start_agent_with_bot_type(request: Request, bot_type: str, username: s
 
     # Check if there is already an existing process running in this room
     num_bots_in_room = sum(
-        1 for proc in bot_procs.values() if proc[1] == room_url and proc[0].poll() is None
+        1
+        for proc in bot_procs.values()
+        if proc[1] == room_url and proc[0].poll() is None
     )
     if num_bots_in_room >= MAX_BOTS_PER_ROOM:
-        raise HTTPException(status_code=500, detail=f"Max bot limit reached for room: {room_url}")
+        raise HTTPException(
+            status_code=500, detail=f"Max bot limit reached for room: {room_url}"
+        )
 
     # Spawn a new bot process
     try:

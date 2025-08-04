@@ -39,9 +39,7 @@ async def main(room_url, token):
                 camera_in_enabled=False,
                 camera_out_enabled=False,
                 vad_enabled=True,
-                vad_analyzer=SileroVADAnalyzer(
-                    params=VADParams(stop_secs=0.5)
-                ),
+                vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.5)),
                 transcription_enabled=True,
             ),
         )
@@ -51,7 +49,7 @@ async def main(room_url, token):
             api_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
             aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
             aws_session_token=os.getenv("AWS_SESSION_TOKEN"),
-            region=os.getenv("AWS_REGION")
+            region=os.getenv("AWS_REGION"),
         )
 
         # Initialize text-to-speech service
@@ -62,10 +60,8 @@ async def main(room_url, token):
             region=os.getenv("AWS_REGION"),
             voice_id="Joanna",
             params=AWSPollyTTSService.InputParams(
-                engine="generative",
-                language="en-US",
-                rate="1.1"
-            )
+                engine="generative", language="en-US", rate="1.1"
+            ),
         )
 
         # Initialize LLM service
@@ -76,11 +72,8 @@ async def main(room_url, token):
             aws_region=os.getenv("AWS_REGION"),
             model="us.anthropic.claude-3-5-haiku-20241022-v1:0",
             params=AWSBedrockLLMService.InputParams(
-
-                temperature=0.3,
-                latency="optimized",
-                additional_model_request_fields={}
-            )
+                temperature=0.3, latency="optimized", additional_model_request_fields={}
+            ),
         )
 
         messages = [
@@ -122,9 +115,7 @@ async def main(room_url, token):
 
         @transport.event_handler("on_first_participant_joined")
         async def on_first_participant_joined(transport, participant):
-            await transport.capture_participant_transcription(
-                participant["id"]
-            )
+            await transport.capture_participant_transcription(participant["id"])
             # await task.queue_frames(
             #     [context_aggregator.user().get_context_frame()]
             # )
