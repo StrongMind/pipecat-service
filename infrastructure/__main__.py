@@ -12,20 +12,15 @@ region = aws.get_region().name
 
 ecr_image = os.getenv("CONTAINER_IMAGE")
 
-secrets = SecretsComponent(
-    "secrets"
-)
+secrets = SecretsComponent("secrets")
 
 container = ContainerComponent(
     "container",
     secrets=secrets.get_secrets(),
     container_image=ecr_image,
     container_port=8080,
-    env_vars={
-        "ENVIRONMENT": stack,
-        "REGION": region
-    },
+    env_vars={"ENVIRONMENT": stack, "REGION": region},
     desired_count=2,  # Number of tasks to run
     autoscale_threshold=5,  # Response time threshold for autoscaling
-    need_load_balancer=True
+    need_load_balancer=True,
 )

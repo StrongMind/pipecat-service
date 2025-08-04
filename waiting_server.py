@@ -9,7 +9,9 @@ from pathlib import Path
 
 
 class Config(uvicorn.Config):
-    def __init__(self, should_exit_timeout: Optional[float] = None, *args, **kwargs) -> None:
+    def __init__(
+        self, should_exit_timeout: Optional[float] = None, *args, **kwargs
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.should_exit_timeout = should_exit_timeout
 

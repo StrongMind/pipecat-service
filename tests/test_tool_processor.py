@@ -35,9 +35,7 @@ class TestToolProcessorInitialization:
         assert processor._auth_token is None
         assert processor._session is None
 
-    def test_given_custom_parameters_when_initializing_then_uses_provided_values(
-        self
-    ):
+    def test_given_custom_parameters_when_initializing_then_uses_provided_values(self):
         """
         Given: Custom parameters are provided
         When: A ToolProcessor is created
@@ -48,18 +46,15 @@ class TestToolProcessorInitialization:
         auth_token = "custom_token"
 
         # When
-        processor = ToolProcessor(
-            central_base_url=base_url,
-            auth_token=auth_token
-        )
+        processor = ToolProcessor(central_base_url=base_url, auth_token=auth_token)
 
         # Then
         assert processor._central_base_url == base_url
         assert processor._auth_token == auth_token
 
-    @patch.dict(os.environ, {'CENTRAL_API_URL': 'https://env-api.com'})
+    @patch.dict(os.environ, {"CENTRAL_API_URL": "https://env-api.com"})
     def test_given_environment_variable_when_no_base_url_provided_then_uses_env_value(
-        self
+        self,
     ):
         """
         Given: CENTRAL_API_URL environment variable is set
@@ -89,7 +84,7 @@ class TestSessionManagement:
         assert tool_processor._session is None
 
         # When
-        with patch('aiohttp.ClientSession') as mock_session_class:
+        with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = AsyncMock()
             mock_session_class.return_value = mock_session
 
@@ -160,7 +155,11 @@ class TestCentralToolCalling:
 
     @pytest.mark.asyncio
     async def test_given_successful_tool_call_when_calling_central_tool_then_returns_result(
-        self, configured_tool_processor, mock_session, mock_response, sample_tool_arguments
+        self,
+        configured_tool_processor,
+        mock_session,
+        mock_response,
+        sample_tool_arguments,
     ):
         """
         Given: A successful Central API response
@@ -184,15 +183,14 @@ class TestCentralToolCalling:
             "https://test-central-api.com/api/nova_sonic/tools/test_tool",
             json=sample_tool_arguments,
             headers={
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer test_bearer_token'
-            }
+                "Content-Type": "application/json",
+                "Authorization": "Bearer test_bearer_token",
+            },
         )
 
     @pytest.mark.asyncio
     async def test_given_bearer_token_prefix_when_calling_central_tool_then_uses_token_as_is(
-        self, tool_processor, mock_session, mock_response, 
-        sample_tool_arguments
+        self, tool_processor, mock_session, mock_response, sample_tool_arguments
     ):
         """
         Given: An auth token with Bearer prefix
@@ -210,7 +208,7 @@ class TestCentralToolCalling:
         # Then
         call_args = mock_session.post.call_args
         expected_auth = "Bearer already_prefixed_token"
-        assert call_args[1]['headers']['Authorization'] == expected_auth
+        assert call_args[1]["headers"]["Authorization"] == expected_auth
 
     @pytest.mark.asyncio
     async def test_given_api_error_response_when_calling_central_tool_then_returns_error_result(
@@ -261,8 +259,7 @@ class TestCentralToolCalling:
 
     @pytest.mark.asyncio
     async def test_given_no_auth_token_when_calling_central_tool_then_logs_error_and_continues(
-        self, tool_processor, mock_session, mock_response, 
-        sample_tool_arguments
+        self, tool_processor, mock_session, mock_response, sample_tool_arguments
     ):
         """
         Given: No authentication token is provided
@@ -275,10 +272,8 @@ class TestCentralToolCalling:
         mock_session.post.return_value.__aenter__.return_value = mock_response
 
         # When
-        with patch('tool_processor.logger') as mock_logger:
-            await tool_processor._call_central_tool(
-                "test_tool", sample_tool_arguments
-            )
+        with patch("tool_processor.logger") as mock_logger:
+            await tool_processor._call_central_tool("test_tool", sample_tool_arguments)
 
         # Then
         expected_error_message = (
@@ -286,7 +281,7 @@ class TestCentralToolCalling:
         )
         mock_logger.error.assert_called_with(expected_error_message)
         call_args = mock_session.post.call_args
-        assert 'Authorization' not in call_args[1]['headers']
+        assert "Authorization" not in call_args[1]["headers"]
 
 
 class TestFrameProcessing:
@@ -294,8 +289,11 @@ class TestFrameProcessing:
 
     @pytest.mark.asyncio
     async def test_given_function_call_frame_when_processing_then_executes_tool_and_returns_result(
-        self, configured_tool_processor, function_call_frame, mock_session, 
-        mock_response
+        self,
+        configured_tool_processor,
+        function_call_frame,
+        mock_session,
+        mock_response,
     ):
         """
         Given: A FunctionCallInProgressFrame is received
@@ -310,7 +308,9 @@ class TestFrameProcessing:
         configured_tool_processor.push_frame = AsyncMock()
 
         # When
-        await configured_tool_processor.process_frame(function_call_frame, FrameDirection.DOWNSTREAM)
+        await configured_tool_processor.process_frame(
+            function_call_frame, FrameDirection.DOWNSTREAM
+        )
 
         # Then
         # Verify tool was called
@@ -365,7 +365,9 @@ class TestFrameProcessing:
         tool_processor.push_frame = AsyncMock()
 
         # When
-        await tool_processor.process_frame(function_call_frame, FrameDirection.DOWNSTREAM)
+        await tool_processor.process_frame(
+            function_call_frame, FrameDirection.DOWNSTREAM
+        )
 
         # Then
         pushed_frame = tool_processor.push_frame.call_args[0][0]
@@ -379,8 +381,11 @@ class TestIntegrationScenarios:
 
     @pytest.mark.asyncio
     async def test_given_multiple_tool_calls_when_processing_sequentially_then_handles_each_correctly(
-        self, configured_tool_processor, sample_tool_arguments, mock_session, 
-        mock_response
+        self,
+        configured_tool_processor,
+        sample_tool_arguments,
+        mock_session,
+        mock_response,
     ):
         """
         Given: Multiple tool calls are processed sequentially
@@ -393,9 +398,21 @@ class TestIntegrationScenarios:
         configured_tool_processor.push_frame = AsyncMock()
 
         frames = [
-            FunctionCallInProgressFrame(tool_call_id="call_1", function_name="tool_1", arguments=sample_tool_arguments),
-            FunctionCallInProgressFrame(tool_call_id="call_2", function_name="tool_2", arguments=sample_tool_arguments),
-            FunctionCallInProgressFrame(tool_call_id="call_3", function_name="tool_3", arguments=sample_tool_arguments),
+            FunctionCallInProgressFrame(
+                tool_call_id="call_1",
+                function_name="tool_1",
+                arguments=sample_tool_arguments,
+            ),
+            FunctionCallInProgressFrame(
+                tool_call_id="call_2",
+                function_name="tool_2",
+                arguments=sample_tool_arguments,
+            ),
+            FunctionCallInProgressFrame(
+                tool_call_id="call_3",
+                function_name="tool_3",
+                arguments=sample_tool_arguments,
+            ),
         ]
 
         # When
@@ -413,7 +430,7 @@ class TestIntegrationScenarios:
         expected_urls = [
             "https://test-central-api.com/api/nova_sonic/tools/tool_1",
             "https://test-central-api.com/api/nova_sonic/tools/tool_2",
-            "https://test-central-api.com/api/nova_sonic/tools/tool_3"
+            "https://test-central-api.com/api/nova_sonic/tools/tool_3",
         ]
 
         for i, call in enumerate(post_calls):
@@ -438,7 +455,7 @@ class TestIntegrationScenarios:
         assert tool_processor._session is None
 
         # When reusing processor
-        with patch('aiohttp.ClientSession') as mock_session_class:
+        with patch("aiohttp.ClientSession") as mock_session_class:
             new_session = AsyncMock()
             mock_session_class.return_value = new_session
 
@@ -460,7 +477,7 @@ class TestIntegrationScenarios:
         special_args = {
             "text": "Hello \"world\" with 'quotes' and ñoñó special chars",
             "unicode": "🚀 emoji and unicode",
-            "json": {"nested": {"deep": "value with \n newlines"}}
+            "json": {"nested": {"deep": "value with \n newlines"}},
         }
         tool_processor._session = mock_session
         mock_session.post.return_value.__aenter__.return_value = mock_response
@@ -470,4 +487,4 @@ class TestIntegrationScenarios:
 
         # Then
         call_args = mock_session.post.call_args
-        assert call_args[1]['json'] == special_args
+        assert call_args[1]["json"] == special_args

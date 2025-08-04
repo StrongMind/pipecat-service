@@ -8,7 +8,10 @@ import os
 
 import aiohttp
 from fastapi import HTTPException
-from pipecat.transports.services.helpers.daily_rest import DailyRESTHelper, DailyRoomParams
+from pipecat.transports.services.helpers.daily_rest import (
+    DailyRESTHelper,
+    DailyRoomParams,
+)
 
 
 async def configure(aiohttp_session: aiohttp.ClientSession):

@@ -40,9 +40,7 @@ from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
-from pipecat.processors.frameworks.rtvi import (
-    RTVIConfig, RTVIObserver, RTVIProcessor
-)
+from pipecat.processors.frameworks.rtvi import RTVIConfig, RTVIObserver, RTVIProcessor
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.transports.services.daily import DailyParams, DailyTransport
@@ -61,9 +59,9 @@ for i in range(1, 26):
     # Get the filename without the extension to use as the dictionary key
     # Open the image and convert it to bytes
     with Image.open(full_path) as img:
-        sprites.append(OutputImageRawFrame(
-            image=img.tobytes(), size=img.size, format=img.format
-        ))
+        sprites.append(
+            OutputImageRawFrame(image=img.tobytes(), size=img.size, format=img.format)
+        )
 
 # Create a smooth animation by adding reversed frames
 flipped = sprites[::-1]
@@ -230,16 +228,12 @@ async def main():
         async def on_client_ready(rtvi):
             await rtvi.set_bot_ready()
             # Kick off the conversation
-            await task.queue_frames(
-                [context_aggregator.user().get_context_frame()]
-            )
+            await task.queue_frames([context_aggregator.user().get_context_frame()])
 
         @transport.event_handler("on_first_participant_joined")
         async def on_first_participant_joined(transport, participant):
             print(f"Participant joined: {participant}")
-            await transport.capture_participant_transcription(
-                participant["id"]
-            )
+            await transport.capture_participant_transcription(participant["id"])
 
         @transport.event_handler("on_participant_left")
         async def on_participant_left(transport, participant, reason):
