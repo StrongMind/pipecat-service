@@ -1,3 +1,4 @@
 encryptionsalt: v1:SlW67okLYBM=:v1:9aLjVme21ruvKNmZ:YpISw5ytqyX1dmUiuEXQaHt7qgPkkw==
 config:
+  tags:tenant: course-pro
   aws:region: us-west-2
